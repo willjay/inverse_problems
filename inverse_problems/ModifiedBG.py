@@ -271,9 +271,12 @@ class ModifiedBG(object):
         if (self.get_lam() > 0.0 and cov is not None):
             #print(A.rows, A.cols)
             #print(cov.rows, cov.cols)
-            A_part = mpm.fmul(mpm.fsub(1, lam), A[:t_max,:t_max])
-            B_part = mpm.div(mpm.fmul(lam, cov[:t_max,:t_max]), mpm.fmul(data[0], data[0]))
-            W = mpm.fadd(A_part, B_part)
+            A_part = mpm.fsub(1, lam) * A[:t_max,:t_max]
+            B_part = mpm.fdiv(lam, mpm.fmul(data[0], data[0])) * cov[:t_max,:t_max]
+            W = A.copy()
+            for i in range(W.rows):
+                for j in range(W.cols):
+                    W[i,j] = mpm.fadd(A_part[i,j], B_part[i,j])
             #W = A + lam * cov
         else:
             W = A[:t_max,:t_max]
