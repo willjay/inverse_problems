@@ -76,7 +76,7 @@ class RealDomainData:
 class Schur:
     """
     Interpolation of Schur functions (holomorphic functions from the open
-    unit disk to the close unit disk) using continued fractions expressed in
+    unit disk to the closed unit disk) using continued fractions expressed in
     terms of Moebius transformations.
     """
     def __init__(self, imag):
@@ -102,11 +102,15 @@ class Schur:
         theta_n = [[gamma_n(z), phi_n], [gamma_n(z) phi_n^{*}, 1]
         """
         gamma = self.gamma(idx, z)
-        result = np.zeros((2, 2), dtype=complex)
-        result[0, 0] = gamma
-        result[0, 1] = self.phi[idx]
-        result[1, 0] = np.conjugate(self.phi[idx]) * gamma
-        result[1, 1] = 1.0
+        result = np.array(
+            [[gamma, self.phi[idx]],
+             [np.conjugate(self.phi[idx]) * gamma, 1.0]],
+            dtype=complex)
+        # result = np.zeros((2, 2), dtype=complex)
+        # result[0, 0] = gamma
+        # result[0, 1] = self.phi[idx]
+        # result[1, 0] = np.conjugate(self.phi[idx]) * gamma
+        # result[1, 1] = 1.0
         return result
 
     def initialize(self):
@@ -132,7 +136,8 @@ class Schur:
         """
         return [self.theta_matrix(idx=idx, z=z) for idx in range(self.npts)]
 
-    def __call__(self, z, map_back=True):
+    # def __call__(self, z, map_back=True):
+    def __call__(self, z, fcn=None, map_back=True, **kwargs):
         """
         Evaluate the interpolant.
         Args:
@@ -142,12 +147,35 @@ class Schur:
         """
         # Choose theta_M to be a vanishing constant
         # TODO: optimize with Hardy functions or some other method
-        param = 0.
+        # param = 0.
+        if fcn is None:
+            def _fcn(z, **kwargs):
+                return 0
+            fcn = _fcn
         # Compute the product of matrices in Eq.(8)
+        (a,b), (c,d) = (1, 0), (0, 1)
         arr = np.eye(2, dtype=complex)
         for idx in range(self.npts):
             arr = arr @ self.theta_matrix(idx=idx, z=z)
-        result = theta_map(arr, param)
+        # result = theta_map(arr, param)
+        # for idx in range(self.npts):
+        #     gamma = self.gamma(idx, z)
+        #     phi = self.phi[idx]
+        #     A = gamma
+        #     B = phi
+        #     C = np.conjugate(phi) * gamma
+        #     D = 1.0
+        #     anew = a*A + b*C
+        #     bnew = a*B + b*D
+        #     cnew = c*A + d*C
+        #     dnew = c*B + d*D
+        #     a = anew
+        #     b = bnew
+        #     c = cnew
+        #     d = dnew
+        # arr = np.array([[a, b], [c, d]])
+        arr = arr / np.max(arr)  # Normalize entries
+        result = theta_map(arr, fcn(z, **kwargs))
         if not map_back:
             return result
         return inverse_moebius(result)
@@ -187,7 +215,7 @@ class Nevanlinna:
                 final result for the Nevanlinna Green function.
         """
         omega = RealDomainData(start, stop, num, eta=eta).freq
-        result = [self.schur(z, map_back) for z in omega]
+        result = [self.schur(z, map_back=map_back) for z in omega]
         result = np.array(result)
         return omega, result
 
