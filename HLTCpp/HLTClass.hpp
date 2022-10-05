@@ -17,6 +17,7 @@ class HLT
 		const mpfr::mpreal HALF  = mpfr::mpreal("0.5");
 		const mpfr::mpreal PI    = mpfr::const_pi();
 		const mpfr::mpreal SQRT2 = sqrt(TWO);
+		const mpfr::mpreal SQRTPI = sqrt(PI);
 
 		VectorXmp 	 data;
 		MatrixXmp 	 cov;
@@ -119,6 +120,7 @@ class HLT
 
 		void generate_vars(const mpfr::mpreal& E_star);
 
+		// Used for error analysis
 		mpfr::mpreal target(const mpfr::mpreal& E, const mpfr::mpreal& E_star);
 		VectorXmp 	 target(const VectorXmp& Es, const mpfr::mpreal& E_star);
 		mpfr::mpreal delta_bar(const mpfr::mpreal& E, const mpfr::mpreal& E_star);
@@ -126,8 +128,11 @@ class HLT
 		mpfr::mpreal relative_deviation(const mpfr::mpreal& E, const mpfr::mpreal& in_E_star);
 		VectorXmp 	 relative_deviation(const VectorXmp& Es, const mpfr::mpreal& in_E_star);
 
-		mpfr::mpreal A_functional();
+		// Functionals; useful for optimizing lambda and error analysis
+		mpfr::mpreal A_functional(const mpfr::mpreal& in_E_star);
 		mpfr::mpreal B_functional();
+		mpfr::mpreal W_functional(const mpfr::mpreal& in_E_star, const mpfr::mpreal& in_lambda);
+		VectorXmp scan_lambda(const mpfr::mpreal& in_E_star, const VectorXmp& in_lambdas);
 
 		mpfr::mpreal reconstruct();
 		MatrixXmp solve(const VectorXmp& Es);

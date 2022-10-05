@@ -22,7 +22,6 @@ HLT::HLT(const VectorXmp& in_data,
 	/*
 	VectorXmp 	 data;
 	MatrixXmp 	 cov;
-	VectorXmp	 t;
 	int 	  	 T = in_T;
 	mpfr::mpreal lambda;
 	mpfr::mpreal alpha;
@@ -42,16 +41,17 @@ HLT::HLT(const VectorXmp& in_data,
 	t_max = HLT::generate_t_max();
 	R     = HLT::generate_R();
 	W 	  = HLT::generate_W();
-	std::cout << "Hello!\n";
+	std::cout << "Hello!" << std::endl;
 }
 
 void HLT::print_num_consts()
 {
-	std::cout << "ONE:  " << ONE   << std::endl;
-	std::cout << "TWO:  " << TWO   << std::endl;
-	std::cout << "HALF: " << HALF  << std::endl;
-	std::cout << "PI:   " << PI    << std::endl;
-	std::cout << "SQRT2:" << SQRT2 << std::endl;
+	std::cout << "ONE:    " << ONE    << '\n';
+	std::cout << "TWO:    " << TWO    << '\n';
+	std::cout << "HALF:   " << HALF   << '\n';
+	std::cout << "PI:     " << PI     << '\n';
+	std::cout << "SQRT2:  " << SQRT2  << '\n';
+	std::cout << "SQRTPI: " << SQRTPI << std::endl;
 }
 
 /*
@@ -298,7 +298,6 @@ MatrixXmp HLT::A()
 	return out;
 }
 
-// Need to fully implement, for test purposes W is just the A matrix
 MatrixXmp HLT::generate_W()
 {
 	int 		 t_max = HLT::get_t_max();
@@ -312,8 +311,10 @@ MatrixXmp HLT::generate_W()
 	}
 
 	MatrixXmp out = MatrixXmp::Zero(t_max, t_max);
-	for (size_t i = 0; i < t_max; i++) {
-		for (size_t j = 0; j < t_max; j++) {
+	for (size_t i = 0; i < t_max; i++)
+	{
+		for (size_t j = 0; j < t_max; j++)
+		{
 			out(i, j) = (ONE - lambda) * A(i, j) + (lambda/(data0 * data0)) * cov(i, j);
 		}
 	}
@@ -362,6 +363,10 @@ mpfr::mpreal HLT::F(int k, const mpfr::mpreal& in_E_star)
 	return ONE + mpfr::erf(F_arg);
 }
 
+/*
+ *
+ */
+
 mpfr::mpreal HLT::N(int k, const mpfr::mpreal& in_E_star)
 {
 	mpfr::mpreal sigma  = HLT::get_sigma();
@@ -372,6 +377,10 @@ mpfr::mpreal HLT::N(int k, const mpfr::mpreal& in_E_star)
 	return (ONE - lambda) / (TWO * HLT::generate_Z(in_E_star)) * mpfr::exp(N_arg);
 }
 
+
+/*
+ * f is the integral of the product of the smearing function and the basis
+ */
 VectorXmp HLT::generate_f(const mpfr::mpreal& in_E_star)
 {
 	int T = HLT::get_T();
@@ -422,11 +431,11 @@ VectorXmp HLT::generate_g(const mpfr::mpreal& in_E_star)
     Winv_f = bdcsvd.solve(f);
 	*/
 
-
+	/*
 	Eigen::FullPivLU<MatrixXmp> lu(W);
 	Winv_R = lu.solve(R);
     Winv_f = lu.solve(f);
-
+	*/
 
 	/*
 	std::cout << "R       :\n" << R << std::endl;
@@ -470,7 +479,8 @@ VectorXmp HLT::target(const VectorXmp& Es, const mpfr::mpreal& in_E_star)
 	mpfr::mpreal denom = ONE / (sqrt(TWO * PI) * sigma * Z);
 	*/
 	VectorXmp out = VectorXmp::Zero(Es.rows());
-	for (int i = 0; i < Es.rows(); i++) {
+	for (int i = 0; i < Es.rows(); i++)
+	{
 		//out(i) = denom * exp(-ONE * pow((Es(i) - E_star), 2) / (TWO * pow(sigma, 2)));
 		out(i) = HLT::target(Es(i), in_E_star);
 	}
@@ -483,7 +493,8 @@ mpfr::mpreal HLT::delta_bar(const mpfr::mpreal& E, const mpfr::mpreal& in_E_star
 	VectorXmp g = HLT::generate_g(in_E_star); //Might need to change get to generate in full implementation
 	VectorXmp r = HLT::generate_r(E);  	   //Might need to change get to generate in full implementation
 	mpfr::mpreal out = mpfr::mpreal("0");
-	for (int i = 0; i < g.rows(); i++) {
+	for (int i = 0; i < g.rows(); i++)
+	{
 		out += g(i) * r(i + 1);
 	}
 	return out;
@@ -493,7 +504,8 @@ VectorXmp HLT::delta_bar(const VectorXmp& Es, const mpfr::mpreal& in_E_star)
 {
 	HLT::generate_vars(in_E_star);
 	VectorXmp out = VectorXmp::Zero(Es.rows());
-	for (size_t i = 0; i < Es.rows(); i++) {
+	for (size_t i = 0; i < Es.rows(); i++)
+	{
 		out(i) = HLT::delta_bar(Es(i), in_E_star);
 	}
 
@@ -512,26 +524,88 @@ VectorXmp HLT::relative_deviation(const VectorXmp& Es, const mpfr::mpreal& in_E_
 {
 	HLT::generate_vars(in_E_star);
 	VectorXmp out = VectorXmp::Zero(Es.rows());
-	for (size_t i = 0; i < Es.rows(); i++) {
+	for (size_t i = 0; i < Es.rows(); i++)
+	{
 		out(i) = HLT::relative_deviation(Es(i), in_E_star);
 	}
 
 	return out;
 }
 
-mpfr::mpreal HLT::A_functional()
+/*
+ * A functional used in error analysis. Compare to HLT Eq. 28.
+ */
+
+mpfr::mpreal HLT::A_functional(const mpfr::mpreal& in_E_star)
 {
-	mpfr::mpreal lambda = HLT::get_lambda();
-	return NULL;
+	mpfr::mpreal sigma  = HLT::get_sigma();
+	mpfr::mpreal Z		= HLT::get_Z();
+	mpfr::mpreal E0		= HLT::get_E0();
+	VectorXmp g			= HLT::get_g();
+	VectorXmp f			= HLT::get_f();
+	MatrixXmp A			= HLT::A();
+
+	mpfr::mpreal term1;
+	mpfr::mpreal term2;
+	mpfr::mpreal denom3;
+	mpfr::mpreal term3;
+
+	// Integral of delta_bar squared
+	term1 = (g.transpose() * A * g)(0);
+
+	// Cross-term integration: integral of -2 * delta_bar * target
+	term2 = -TWO * (f.transpose() * g)(0);
+
+	// Integral of target function squared
+	denom3 = TWO * TWO * sigma * sqrt(PI) * Z * Z;
+	term3  = (ONE + erf((in_E_star - E0) / sigma)) / denom3;
+
+
+	return term1 + term2  + term3;
 }
 
 mpfr::mpreal HLT::B_functional()
 {
+	int t_max = HLT::get_t_max();
 	mpfr::mpreal lambda = HLT::get_lambda();
-	VectorXmp cov		= HLT::get_cov();
+	MatrixXmp cov		= HLT::get_cov().block(0, 0, t_max, t_max);
 	VectorXmp g 		= HLT::get_g();
 
-	return lambda * (g.transpose() * cov * g)(0);
+	return (g.transpose() * cov * g)(0);
+}
+
+mpfr::mpreal HLT::W_functional(const mpfr::mpreal& in_E_star, const mpfr::mpreal& in_lambda)
+{
+	mpfr::mpreal A_term = HLT::A_functional(in_E_star) * (ONE - in_lambda);
+	mpfr::mpreal B_term = in_lambda * HLT::B_functional();
+
+	return A_term + B_term;
+}
+
+VectorXmp HLT::scan_lambda(const mpfr::mpreal& in_E_star, const VectorXmp& in_lambdas)
+{
+	mpfr::mpreal original_lambda = HLT::get_lambda();
+	int Nlam = in_lambdas.rows();
+	VectorXmp out = VectorXmp::Zero(Nlam);
+
+	auto start = std::chrono::high_resolution_clock::now();
+	for (size_t i = 0; i < Nlam; i++)
+	{
+		std::cout << i << " of " << Nlam - 1<< '\n';
+		HLT::set_lambda(in_lambdas(i));
+		HLT::generate_W();
+		HLT::generate_vars(in_E_star);
+		out(i) = HLT::W_functional(in_E_star, in_lambdas(i));
+	}
+	auto stop = std::chrono::high_resolution_clock::now();
+	auto duration = duration_cast<std::chrono::microseconds>(stop - start);
+	std::cout << "Time taken by function: "
+         << duration.count() << " microseconds" << std::endl;
+
+	HLT::set_lambda(original_lambda);
+	std::cout << out.rows() << '\n';
+
+	return out;
 }
 
 mpfr::mpreal HLT::reconstruct()
@@ -543,7 +617,8 @@ mpfr::mpreal HLT::reconstruct()
 
 
 	mpfr::mpreal out = mpfr::mpreal("0.0");
-	for (int i = 0; i < t_max; i++) {
+	for (int i = 0; i < t_max; i++)
+	{
 		out += g(i) * data(i + 1);
 	}
 
@@ -553,18 +628,19 @@ mpfr::mpreal HLT::reconstruct()
 MatrixXmp HLT::solve(const VectorXmp& Es)
 {
 	auto start = std::chrono::high_resolution_clock::now();
-	std::cout << "pre-out" << '\n';
+	//std::cout << "pre-out" << '\n';
 	MatrixXmp out = MatrixXmp::Zero(2, Es.rows());
-	std::cout << "post-out" << '\n';
+	//std::cout << "post-out" << '\n';
 	//#pragma omp parallel for
-	for (int i = 0; i < Es.rows(); i++) {
-		std::cout << i << " of " << Es.rows() << '\n';
+	for (int i = 0; i < Es.rows(); i++)
+	{
+		std::cout << i - 1 << " of " << Es.rows() << '\n';
 		generate_vars(Es(i));
-		std::cout << "pre-reconstruct" << '\n';
+		//std::cout << "pre-reconstruct" << '\n';
 		out(0, i) = reconstruct();
-		std::cout << "pre-relative_deviation" << '\n';
+		//std::cout << "pre-relative_deviation" << '\n';
 		out(1, i) = out(0, i) * abs(HLT::relative_deviation(Es(i), Es(i)));
-		std::cout << "finish" << '\n';
+		//std::cout << "finish" << '\n';
 	}
 	auto stop = std::chrono::high_resolution_clock::now();
 	auto duration = duration_cast<std::chrono::microseconds>(stop - start);
@@ -581,37 +657,34 @@ int main(int argc, char const *argv[])
 	const int digits = 128;
 	mpfr::mpreal::set_default_prec(mpfr::digits2bits(digits));
 	std::cout.precision(digits);
-	int T = 65;
+	int T = 31;
 	bool sym = 0;
-	mpfr::mpreal sigma  = mpfr::mpreal("0.05");
-	mpfr::mpreal alpha  = mpfr::mpreal("0.00");
+	mpfr::mpreal sigma  = mpfr::mpreal("0.1");
+	mpfr::mpreal alpha  = mpfr::mpreal("0.0");
 	mpfr::mpreal E0     = mpfr::mpreal("0.0");
-	mpfr::mpreal lambda = mpfr::mpreal("0.01");
+	mpfr::mpreal lambda = mpfr::mpreal("0.0");
 	mpfr::mpreal E_star = mpfr::mpreal("0.5");
 	int t = 1;
 	VectorXmp data = VectorXmp::Zero(T);
+
+
 	for (size_t i = 0; i < data.rows(); i++)
 	{
 		data(i) = exp(-mpfr::mpreal("0.2") * i) + exp(-mpfr::mpreal("0.5") * i) + exp(-mpfr::mpreal("0.8") * i);
 	}
 
+	//data << 9.31914557e+00, 4.12098563e+00 , 2.05867652e+00 , 1.16961382e+00 , 7.45592526e-01 , 5.19272416e-01, 3.84282314e-01, 2.95650641e-01, 2.33002923e-01, 1.86365563e-01, 1.50429822e-01, 1.22117208e-01, 9.94914967e-02, 8.12456708e-02, 6.64459101e-02, 5.43959724e-02, 4.45606862e-02, 3.65199200e-02, 2.99390970e-02, 2.45491952e-02, 2.01325014e-02, 1.65120613e-02, 1.35436283e-02, 1.11093857e-02, 9.11297489e-03, 7.47551456e-03, 6.13238989e-03, 5.03064906e-03, 4.12688479e-03, 3.38550633e-03, 2.77732744e-03;
+
+	std::cout << data << '\n';
 	MatrixXmp cov = MatrixXmp::Zero(T, T);
 	for (size_t i = 0; i < cov.rows(); i++)
 	{
 		for (size_t j = 0; j < cov.cols(); j++)
 		{
-			cov(i, j) = mpfr::mpreal("0.01");// * data(i) * data(j);
+			cov(i, j) = mpfr::mpreal("0.0");// * data(i) * data(j);
 		}
 	}
 
-	//std::cout << data << std::endl;
-/*
-	const mpfr::mpreal E_star = mpfr::mpreal("0.1");
-	const mpfr::mpreal sigma = mpfr::mpreal("0.05");
-	const mpfr::mpreal alpha = mpfr::mpreal("0.015");
-	const mpfr::mpreal lambda = mpfr::mpreal("0.3");
-	const mpfr::mpreal E_0	  = mpfr::mpreal("0.2");
-*/
 
 	VectorXmp Es = VectorXmp::LinSpaced(101, 0, 1);
 
@@ -630,19 +703,28 @@ int main(int argc, char const *argv[])
 	//std::cout << "g(" << E_star << "):\n"<< test.generate_g(E_star) << std::endl;
 	//std::cout << "target(Es, " << E_star << "):\n"<< test.target(Es, E_star) << std::endl;
 
+	/*
+	std::cout << "A_functional(0.5): " << test.A_functional(E_star) << std::endl;
+	std::cout << "B_functional(): " << test.B_functional() << std::endl;
+	std::cout << "W_functional(0.5): " << test.W_functional(E_star, lambda) << std::endl;
+	*/
+
+	VectorXmp lambdas = VectorXmp::LinSpaced(101, 0, 1);
 	//VectorXmp temp  = test.delta_bar(Es, mpfr::mpreal("0.2"));
 	//VectorXmp temp2 = test.target(Es, mpfr::mpreal("0.5"));
 	//VectorXmp temp3 = test.target(Es, mpfr::mpreal("0.8"));test.target(Es, 0.2) + test.target(Es, 0.5) + test.target(Es, 0.8);
 	MatrixXmp temp4 = test.solve(Es);
-	//VectorXmp temp5 = test.get_g();
-	for (size_t i = 0; i < temp4.cols(); i++) {
+	//VectorXmp temp5 = test.scan_lambda(E_star, lambdas);
+	std::cout << temp4.cols() << '\n';
+	for (size_t i = 0; i < temp4.cols(); i++)
+	{
 		//std::cout << temp(i) + temp2(i) + temp3(i) << ", ";
-		std::cout << temp4(1, i) << ", ";
+		std::cout << temp4(0, i) << ", ";
 	}
 
 	/*
 	 * Try to transform back to the correlator data
-	 */
+	*/
 
 
 	return 0;
