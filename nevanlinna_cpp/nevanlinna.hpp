@@ -1,9 +1,10 @@
+#ifndef NEVANLINNA_H
+#define NEVANLINNA_H
+
 #include <iostream>
 #include <time.h>
-// #include <math.h>
 #include <cmath>
 #include <mpfr.h>
-// #include <mpc.h>
 #include <complex>
 #include <vector>
 #include <eigen3/unsupported/Eigen/MPRealSupport>
@@ -20,7 +21,7 @@
  */
 template <class T>
 class prec {
-    protected:
+    public:
         // Precision types
         using NReal = T;
         using NComplex = std::complex<T>;
@@ -44,12 +45,17 @@ class prec {
             SQRT2                   (sqrt(TWO)), 
             PI                      (NComplex{M_PI, 0.}) 
         {};
+
+        // Getters
         NComplex get_zero()         {return ZERO;}
         NComplex get_one()          {return ONE;}
         NComplex get_i()            {return I;}
         NComplex get_two()          {return TWO;}
         NComplex get_sqrt2()        {return SQRT2;}
         NComplex get_pi()           {return PI;};
+
+        // Miscellaneous
+        // void print(NVector v);
 };
 
 // Specialized constructors for precision type when T is mpf_class. 
@@ -190,3 +196,5 @@ class Nevanlinna : prec<T> {
         Schur<T> schur;
 
 };
+
+#endif
