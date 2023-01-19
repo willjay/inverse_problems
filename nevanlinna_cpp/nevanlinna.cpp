@@ -1,102 +1,61 @@
 #include <iostream>
-#include <eigen3/Eigen/LU>
-#include <eigen3/Eigen/SVD>
-#include <eigen3/Eigen/QR>
-#include <eigen3/Eigen/Cholesky>
-#include "nevanlinna.hpp"
 #include <omp.h>
 #include <chrono>
 
-template <class T>
-void print_complex(const typename prec<T>::NComplex c) {
-    std::cout << c.real() << " + " << c.imag() << "i";
-}
+#include <cassert>
+#define assertm(exp, msg) assert(((void)msg, exp))
 
-template <class T>
-void print_vector(const typename prec<T>::NVector v) {
-    std::cout << "[";
-    for (int ii = 0; ii < v.size(); ii++) {
-        print_complex<T>(v[ii]);
-        if (ii < v.size() - 1) {
-            std::cout << ", ";
-        } else {
-            std::cout << "]" << std::endl;
-        }   
-    }
-}
-
-template <class T>
-ImaginaryDomainData<T>::ImaginaryDomainData(const NVector freqs0, const NVector ng0) : 
-    freqs(freqs0), ng(ng0), h(mobius(ng)) 
-{};
-
-// template <class T>
-// NVector ImaginaryDomainData<T>::mobius(const NVector z) {
-
-// ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::mobius(const NVector z) {
-template <class T>
-typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::mobius(const NVector z) {
-    NVector hz(z);
-    for (int ii = 0; ii < z.size(); ii++) {
-        hz[ii] = (z[ii] - this->I) / (z[ii] + this->I);
-    }
-    return hz;
-}
-
-// template <class T>
-// ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::inv_mobius(const NVector z) {
-//     NVector hinvz(z);
-//     for (int ii = 0; ii < z.size(); ii++) {
-//         hinvz[ii] = prec.get_i() * (prec.get_one() + z[ii]) / (prec.get_one() - z[ii]);
-//     }
-//     return hinvz;
-// }
-
-// NVector get_pick_matrix(NVector freq, NVector ng);
-
-// Random testing ground.
-void playground() {
-
-    std::cout << "hello world" << std::endl;
-    // mpf_class I = 0.;
-    // std::cout << "I is: " << I << std::endl;
-
-    prec<double> x1;
-    prec<mpf_class> x2;
-    prec<mpfr::mpreal> x3;
-    std::cout << x2.get_pi() << std::endl;
-    std::cout << x3.get_pi() << std::endl;
-
-    // ImaginaryDomainData<double> imag ();
-    prec<double>::NComplex z = {0.0, 0.2};
-    std::cout << z << std::endl;
-
-    prec<double>::NVector ff = {
-        {0.0, 1.0},
-        {0.0, 2.0},
-        {0.0, 3.0}
-    };
-    std::cout << ff[0].real() << std::endl;
-    std::cout << ff[0] << std::endl;
-
-    prec<double>::NVector ng_pts = {
-        {0.2, 0.8},
-        {0.1, 0.92},
-        {-0.43, 0.03}
-    };
-
-    std::cout << "Printing vec" << std::endl;
-    print_vector<double>(ng_pts);
-    ImaginaryDomainData<double> imag (ff, ng_pts);
-    print_vector<double>(imag.get_h());
-
-}
+#include "nevanlinna.hpp"
 
 int main(int argc, char const *argv[]) {
-    mpf_set_default_prec(PRECISION);
-    prec<mpf_class> precision;
 
-    playground();
+    // Initialize precision
+    mpf_set_default_prec(PRECISION);
+    std::cout.precision(DIGITS);
+    mpfr::mpreal::set_default_prec(mpfr::digits2bits(DIGITS));
+
+    std::cout << std::endl << "Running Nevanlinna." << std::endl;
+
+    assertm (argc == 3, "File name must be only input argument.");
+    std::string in_name = argv[1];
+    std::string out_name = argv[2];
+    std::cout << "Reading input from: " << in_name << std::endl;
+    std::cout << "Writing output to: " << out_name << std::endl;
+
+    // Read data from input file
+    H5Reader<mpfr::mpreal> reader (in_name);
+    Prec<mpfr::mpreal>::NVector freqs = reader.get_freqs();
+    Prec<mpfr::mpreal>::NVector ng = reader.get_ng();
+    int beta = freqs.size();
+
+    std::cout << std::endl << "Matsubara frequencies:" << std::endl;
+    print_vector<mpfr::mpreal>(freqs);
+    std::cout << std::endl << "Green's function at Matsubara frequencies:" << std::endl;
+    print_vector<mpfr::mpreal>(ng);
+
+    Prec<mpfr::mpreal>::NReal eta ("0.00001");
+    Nevanlinna<mpfr::mpreal> nevanlinna (freqs, ng);
+
+    // TODO figuring out problem with NANs
+    std::cout << std::endl << "Phi vals: " << std::endl;
+    print_vector<mpfr::mpreal>(nevanlinna.get_schur().get_phi());
+    
+    RealDomainData<mpfr::mpreal> omegas;
+    Prec<mpfr::mpreal>::NVector rho_recon;
+    double start = 0.0;
+    double stop = 0.2;
+    int num = 200;
+    std::tie(omegas, rho_recon) = nevanlinna.evaluate(start, stop, num, eta, true);
+
+    std::cout << std::endl << "Reconstructed frequencies:" << std::endl;
+    print_vector<mpfr::mpreal>(omegas.get_freqs());
+    std::cout << std::endl << "Reconstructed spectral function:" << std::endl;
+    print_vector<mpfr::mpreal>(rho_recon);
+
+    // Write to output file
+    H5Writer<mpfr::mpreal> fout (out_name, beta, start, stop, num, eta, freqs, ng, rho_recon);
+    fout.write();
+    std::cout << std::endl << "Recon written to: " << out_name << std::endl;
 
     return 0;
 }

@@ -7,9 +7,9 @@ CXXFLAGS += -I/Users/theoares/libraries/mpreal/
 CXXFLAGS += -L/usr/local/Cellar/mpfr/4.1.0-p13/lib/
 CXXFLAGS += -L/usr/local/Cellar/gmp/6.2.1_1/lib/
 
-nevanlinna: nevanlinna.o
-	clang++ -v -fverbose-asm nevanlinna.o -o Nevanlinna -lgmpxx -lmpfr -lgmp -lhdf5 -lhdf5_cpp
+tests: tests.o
+	clang++ -v -fverbose-asm tests.o -o Tests -lgmpxx -lmpfr -lgmp
 
 clean:
 	rm -f *.o
-	rm -f ./Nevanlinna
+	rm -f ./Tests
