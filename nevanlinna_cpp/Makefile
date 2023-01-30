@@ -7,6 +7,9 @@ CXXFLAGS += -I/Users/theoares/libraries/mpreal/
 CXXFLAGS += -L/usr/local/Cellar/mpfr/4.1.0-p13/lib/
 CXXFLAGS += -L/usr/local/Cellar/gmp/6.2.1_1/lib/
 
+# try boost for autodiff
+CXXFLAGS += -L/usr/local/Cellar/boost/1.81.0_1/lib/
+
 nevanlinna: nevanlinna.o
 	clang++ -v -fverbose-asm nevanlinna.o -o Nevanlinna -lgmpxx -lmpfr -lgmp -lhdf5 -lhdf5_cpp
 

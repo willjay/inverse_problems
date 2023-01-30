@@ -16,11 +16,13 @@ int main(int argc, char const *argv[]) {
 
     std::cout << std::endl << "Running Nevanlinna." << std::endl;
 
-    assertm (argc == 3, "File name must be only input argument.");
+    assertm (argc == 4, "Requires 3 arguments: input file name; output file name; eta value.");
     std::string in_name = argv[1];
     std::string out_name = argv[2];
+    std::string eta_str = argv[3];
     std::cout << "Reading input from: " << in_name << std::endl;
     std::cout << "Writing output to: " << out_name << std::endl;
+    std::cout << "Running reconstruction with eta = " << eta_str << std::endl;
 
     // Read data from input file
     H5Reader<mpfr::mpreal> reader (in_name);
@@ -33,7 +35,8 @@ int main(int argc, char const *argv[]) {
     std::cout << std::endl << "Green's function at Matsubara frequencies:" << std::endl;
     print_vector<mpfr::mpreal>(ng);
 
-    Prec<mpfr::mpreal>::NReal eta ("0.00001");
+    // Prec<mpfr::mpreal>::NReal eta ("0.00001");
+    Prec<mpfr::mpreal>::NReal eta (eta_str);
     Nevanlinna<mpfr::mpreal> nevanlinna (freqs, ng);
 
     // TODO figuring out problem with NANs
@@ -44,7 +47,7 @@ int main(int argc, char const *argv[]) {
     Prec<mpfr::mpreal>::NVector rho_recon;
     double start = 0.0;
     double stop = 0.2;
-    int num = 200;
+    int num = 500;
     std::tie(omegas, rho_recon) = nevanlinna.evaluate(start, stop, num, eta, true);
 
     std::cout << std::endl << "Reconstructed frequencies:" << std::endl;

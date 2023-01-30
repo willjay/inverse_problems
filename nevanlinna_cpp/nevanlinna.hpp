@@ -18,6 +18,8 @@
 #include <gmpxx.h>
 #include <H5Cpp.h>
 
+#include <boost/math/differentiation/autodiff.hpp>
+
 #include "prec.hpp"
 
 // ************************************************************ //

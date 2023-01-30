@@ -35,6 +35,6 @@ print(beta, start, stop, num)
 plt_path = out_dir + 'recon.pdf'
 xx = np.linspace(start, stop, num)
 recon_double = np.complex64(recon)
-pt.plot_1d_points(xx, np.imag(recon_double), col = 'b', ax_label = [r'$\omega$', r'$\rho(\omega)$'], title = 'Reconstructed Spectral Function', \
-                  style=sty, saveat_path = plt_path, logy = True)
+pt.plot_1d_points(xx, np.imag(recon_double), col='b', ax_label=[r'$\omega$', r'$\rho(\omega)$'], \
+    title = r'Reconstructed Spectral Function ($\eta = ' + str(np.float64(eta)) + r'$)', style = sty, saveat_path = plt_path, logy = True)
 print('Plot of reconstruction saved to: ' + plt_path)
