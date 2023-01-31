@@ -34,8 +34,7 @@ int main(int argc, char const *argv[]) {
     print_vector<mpfr::mpreal>(freqs);
     std::cout << std::endl << "Green's function at Matsubara frequencies:" << std::endl;
     print_vector<mpfr::mpreal>(ng);
-
-    // Prec<mpfr::mpreal>::NReal eta ("0.00001");
+    
     Prec<mpfr::mpreal>::NReal eta (eta_str);
     Nevanlinna<mpfr::mpreal> nevanlinna (freqs, ng);
 
@@ -47,7 +46,7 @@ int main(int argc, char const *argv[]) {
     Prec<mpfr::mpreal>::NVector rho_recon;
     double start = 0.0;
     double stop = 0.2;
-    int num = 500;
+    int num = 500;    // Number of points for recon
     std::tie(omegas, rho_recon) = nevanlinna.evaluate(start, stop, num, eta, true);
 
     std::cout << std::endl << "Reconstructed frequencies:" << std::endl;
@@ -56,7 +55,7 @@ int main(int argc, char const *argv[]) {
     print_vector<mpfr::mpreal>(rho_recon);
 
     // Write to output file
-    H5Writer<mpfr::mpreal> fout (out_name, beta, start, stop, num, eta, freqs, ng, rho_recon);
+    H5Writer<mpfr::mpreal> fout (out_name, beta, start, stop, num, eta, freqs, ng, rho_recon, nevanlinna);
     fout.write();
     std::cout << std::endl << "Recon written to: " << out_name << std::endl;
 
