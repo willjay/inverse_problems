@@ -79,6 +79,14 @@ for mm in [gmp.mpfr('0.04'), gmp.mpfr('0.08'), gmp.mpfr('0.12')]:
 
 freqs, ngs = freqs[1:], ngs[1:]
 
+# Subset frequencies if desired
+sub_idxs = range(0, len(freqs), 2)
+print('Subsetting at indices: ' + str(sub_idxs))
+freqs = freqs[sub_idxs]
+ngs = ngs[sub_idxs]
+
+print('Generating data with ' + str(len(sub_idxs)) + ' Matsubara frequencies.')
+
 print('Freqs: ')
 print(freqs)
 
