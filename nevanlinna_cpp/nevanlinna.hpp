@@ -204,16 +204,19 @@ class H5Reader : Prec<T> {
         std::vector<std::string> ngi_str;
 
         int npts;
+        int beta;
         NVector freqs;
         NVector ng;
 
+        int read_int(std::string dset_path);
         std::vector<std::string> read_field(std::string dset_path);
 
     public:
         H5Reader(std::string fname);
 
         // Accessors
-        int get_npts() const;
+        int get_npts() const;       // Different than beta if we subsample
+        int get_beta() const;
         std::vector<std::string> get_freqs_str() const;
         std::vector<std::string> get_ng_real_str() const;
         std::vector<std::string> get_ng_imag_str() const;
@@ -419,6 +422,16 @@ void Nevanlinna<T>::set_dvec(const NVector& new_dvec) {
 }
 
 template <class T>
+int H5Reader<T>::get_npts() const {
+    return npts;
+}
+
+template <class T>
+int H5Reader<T>::get_beta() const {
+    return beta;
+}
+
+template <class T>
 std::vector<std::string> H5Reader<T>::get_freqs_str() const {
     return freq_str; 
 }
@@ -517,7 +530,7 @@ Nevanlinna<T>::Nevanlinna(NVector& matsubara, NVector& ng) : schur(ImaginaryDoma
 template <class T>
 H5Reader<T>::H5Reader(std::string fname) : 
     h5_path (fname), freq_str (read_field("freqs/imag")), ngr_str (read_field("ng/real")), ngi_str (read_field("ng/imag")), 
-    npts (freq_str.size()), freqs (npts), ng (npts) 
+    npts (freq_str.size()), beta (read_int("beta")), freqs (npts), ng (npts) 
 {
     for (int ii = 0; ii < npts; ii++) {
         freqs[ii] = NComplex{"0", freq_str[ii]};
@@ -602,10 +615,6 @@ std::tuple<typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schu
     NVector interp (n_eval);
     NMatrix abcd (2, 2);
     NMatrix factor (2, 2);
-    // a_vec = new NVector (n_eval);
-    // b_vec = new NVector (n_eval);
-    // c_vec = new NVector (n_eval);
-    // d_vec = new NVector (n_eval);
     NVector a (n_eval);
     NVector b (n_eval);
     NVector c (n_eval);
@@ -649,6 +658,19 @@ std::tuple<RealDomainData<T>, typename Nevanlinna<T>::NVector> Nevanlinna<T>::ev
     NVector interp;
     std::tie(interp, a_vec, b_vec, c_vec, d_vec) = schur.eval_interp(freqs, Schur<T>::zero_fcn, map_back);
     return std::make_tuple(omega, interp);
+}
+
+template <class T>
+int H5Reader<T>::read_int(std::string dset_path) {
+    H5::H5File f (h5_path, H5F_ACC_RDONLY);
+    H5::DataSet dset = f.openDataSet(dset_path);
+    H5::DataSpace dspace = dset.getSpace();
+    int data_out[1];
+    data_out[0] = 0;
+    dset.read(data_out, H5::PredType::NATIVE_INT, dspace);
+    int output = data_out[0];
+
+    return output;
 }
 
 template <class T>

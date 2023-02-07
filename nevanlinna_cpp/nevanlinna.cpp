@@ -28,7 +28,10 @@ int main(int argc, char const *argv[]) {
     H5Reader<mpfr::mpreal> reader (in_name);
     Prec<mpfr::mpreal>::NVector freqs = reader.get_freqs();
     Prec<mpfr::mpreal>::NVector ng = reader.get_ng();
-    int beta = freqs.size();
+    // int beta = freqs.size();
+    int beta = reader.get_beta();
+    std::cout << "Number of measured Matsubara frequencies: " << freqs.size() << std::endl;
+    std::cout << "Beta is: " << beta << std::endl;
 
     std::cout << std::endl << "Matsubara frequencies:" << std::endl;
     print_vector<mpfr::mpreal>(freqs);
