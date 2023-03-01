@@ -3,7 +3,7 @@ data_root="/Users/theoares/Dropbox (MIT)/research/spectral/testing/inverse_probl
 
 # id=$(date +%s)
 # fn_name="two_peak"
-fn_name="three_peak_b64_p128"
+fn_name="three_peak_b64_p128_half_points"
 parent_dir="${data_root}/${fn_name}"
 mkdir "${parent_dir}"
 echo "Parent directory: ${parent_dir}"

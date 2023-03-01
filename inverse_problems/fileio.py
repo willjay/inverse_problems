@@ -61,9 +61,9 @@ def read_gmp_output_h5(fname):
     num = f['num'][(0)]
     eta = gmp.mpfr(f['eta'][(0)].decode('utf-8'))
 
-    data_keys = ['freqs', 'ng', 'recon', 'a_vec', 'b_vec', 'c_vec', 'd_vec']
-    data = [np.zeros((beta), dtype = object), np.zeros((beta), dtype = object), np.zeros((num), dtype = object), np.zeros((num), dtype = object), \
-        np.zeros((num), dtype = object), np.zeros((num), dtype = object), np.zeros((num), dtype = object)]
+    data_keys = ['freqs', 'ng', 'phis', 'recon', 'a_vec', 'b_vec', 'c_vec', 'd_vec']
+    data = [np.zeros((beta), dtype = object), np.zeros((beta), dtype = object), np.zeros((beta), dtype = object), np.zeros((num), dtype = object), \
+        np.zeros((num), dtype = object), np.zeros((num), dtype = object), np.zeros((num), dtype = object), np.zeros((num), dtype = object)]
     for k, key in enumerate(data_keys):
         re = f[key + '_real'][()]
         im = f[key + '_imag'][()]
@@ -71,6 +71,6 @@ def read_gmp_output_h5(fname):
             tmp_real = gmp.mpfr(re[ii].decode('utf-8'))
             tmp_imag = gmp.mpfr(im[ii].decode('utf-8'))
             data[k][ii] = ONE * tmp_real + I * tmp_imag
-    [freqs, ng, recon, avec, bvec, cvec, dvec] = data
+    [freqs, ng, phis, recon, avec, bvec, cvec, dvec] = data
     abcd = [[avec, bvec], [cvec, dvec]]
-    return beta, start, stop, num, eta, freqs, ng, recon, abcd
+    return beta, start, stop, num, eta, freqs, ng, phis, recon, abcd

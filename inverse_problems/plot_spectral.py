@@ -27,10 +27,13 @@ out_dir = str(sys.argv[2])
 print('Using data at: ' + fname)
 print('Plotting data in directory: ' + out_dir)
 
-beta, start, stop, num, eta, freqs, ng, recon, abcd = read_gmp_output_h5(fname)
+beta, start, stop, num, eta, freqs, ng, phis, recon, abcd = read_gmp_output_h5(fname)
 
 print('Output params')
 print(beta, start, stop, num)
+
+print('Phis:')
+print(phis)
 
 # print('abcd matrix')
 # print(abcd)
