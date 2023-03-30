@@ -74,3 +74,31 @@ def read_gmp_output_h5(fname):
     [freqs, ng, phis, recon, avec, bvec, cvec, dvec] = data
     abcd = [[avec, bvec], [cvec, dvec]]
     return beta, start, stop, num, eta, freqs, ng, phis, recon, abcd
+
+def read_gmp_output_disk_h5(fname):
+    """
+    Reads input simulation data from the appropriate file. Note that the HDF5 file is 
+    assumed to contain the extended precision numbers as strings. 
+    """
+    f = h5py.File(fname, 'r')
+    beta = f['beta'][(0)]
+    start = f['start'][(0)]
+    stop = f['stop'][(0)]
+    num = f['num'][(0)]
+    eta = gmp.mpfr(f['eta'][(0)].decode('utf-8'))
+
+    data_keys = ['freqs', 'xi', 'ng', 'lambda', 'w', 'recon', 'P', 'Q', 'R', 'S']
+    print(f['S_real'][()])
+    data = [np.zeros((beta), dtype = object), np.zeros((beta), dtype = object), np.zeros((beta), dtype = object), np.zeros((beta), dtype = object), \
+        np.zeros((num), dtype = object), np.zeros((num), dtype = object), np.zeros((num), dtype = object), np.zeros((num), dtype = object), \
+        np.zeros((num), dtype = object), np.zeros((num), dtype = object)]
+    for k, key in enumerate(data_keys):
+        re = f[key + '_real'][()]
+        im = f[key + '_imag'][()]
+        for ii in range(len(re)):
+            tmp_real = gmp.mpfr(re[ii].decode('utf-8'))
+            tmp_imag = gmp.mpfr(im[ii].decode('utf-8'))
+            data[k][ii] = ONE * tmp_real + I * tmp_imag
+    [freqs, zs, ng, lambdas, ws, recon, P, Q, R, S] = data
+    nev_coeffs = [[P, Q], [R, S]]
+    return beta, start, stop, num, eta, freqs, zs, ng, lambdas, ws, recon, nev_coeffs

@@ -26,8 +26,8 @@ int main(int argc, char const *argv[]) {
 
     // Read data from input file
     H5Reader<mpfr::mpreal> reader (in_name);
-    Prec<mpfr::mpreal>::NVector freqs = reader.get_freqs();
-    Prec<mpfr::mpreal>::NVector ng = reader.get_ng();
+    Prec<mpfr::mpreal>::NVector freqs = reader.get_freqs();         // Matsubara frequencies i\omega_n
+    Prec<mpfr::mpreal>::NVector ng = reader.get_ng();               // Green's function data -G(i\omega_n)
     // int beta = freqs.size();
     int beta = reader.get_beta();
     std::cout << "Number of measured Matsubara frequencies: " << freqs.size() << std::endl;
@@ -43,19 +43,24 @@ int main(int argc, char const *argv[]) {
 
     // TODO figuring out problem with NANs
     std::cout << std::endl << "Phi vals: " << std::endl;
-    print_vector<mpfr::mpreal>(nevanlinna.get_schur().get_phi());
+    print_vector<mpfr::mpreal>(nevanlinna.get_schur().get_w());
     
     RealDomainData<mpfr::mpreal> omegas;
+    Prec<mpfr::mpreal>::NVector rho_recon_disk;
     Prec<mpfr::mpreal>::NVector rho_recon;
-    double start = -1.0;
-    double stop = 1.0;
+    // double start = -1.0;
+    // double stop = 1.0;
+    double start = 0.0;
+    double stop = 0.2;
     int num = 1000;    // Number of points for recon
-    std::tie(omegas, rho_recon) = nevanlinna.evaluate(start, stop, num, eta, true);
+    std::tie(omegas, rho_recon_disk) = nevanlinna.evaluate(start, stop, num, eta);
+    rho_recon = Nevanlinna<mpfr::mpreal>::inv_mobius(rho_recon_disk);
 
-    std::cout << std::endl << "Reconstructed frequencies:" << std::endl;
-    print_vector<mpfr::mpreal>(omegas.get_freqs());
-    std::cout << std::endl << "Reconstructed spectral function:" << std::endl;
-    print_vector<mpfr::mpreal>(rho_recon);
+    // std::cout << std::endl << "Reconstructed frequencies:" << std::endl;
+    // print_vector<mpfr::mpreal>(omegas.get_freqs());
+    // std::cout << std::endl << "Reconstructed spectral function:" << std::endl;
+    // print_vector<mpfr::mpreal>(rho_recon);
+    std::cout << "Spectral function reconstructed." << std::endl;
 
     // Write to output file
     H5Writer<mpfr::mpreal> fout (out_name, beta, start, stop, num, eta, freqs, ng, rho_recon, nevanlinna);

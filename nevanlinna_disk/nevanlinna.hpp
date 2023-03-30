@@ -41,6 +41,7 @@ class ImaginaryDomainData : Prec<T> {
         using typename Prec<T>::NVector;
 
         NVector freqs;          // Matsubara frequencies
+        NVector xi;             // Mobius transform of Matsubara frequencies.
         NVector ng;             // Negative of Green's function (nevanlinna)
         NVector lam;            // Mobius transform of NG.
         int npts;
@@ -53,6 +54,7 @@ class ImaginaryDomainData : Prec<T> {
 
         // Accessors
         NVector get_freqs() const;
+        NVector get_xi() const;
         NVector get_ng() const;
         NVector get_lambda() const;
         int get_npts() const;
@@ -99,7 +101,8 @@ class RealDomainData : Prec<T> {
 };
 
 /**
- * Container class for the Schur interpolation algorithm.
+ * Container class for the Schur interpolation algorithm. Note this algorithm reconstructs a function 
+ * D --> D, where D is the unit disk. 
  * 
  */
 template <class T>
@@ -113,9 +116,9 @@ class Schur : Prec<T> {
 
         int npts;
         ImaginaryDomainData<T> imag;
-        NVector phi;
+        NVector w;                                    // w_k^{(k-1)} of the paper
 
-        NMatrix theta_matrix(NComplex z, int k);
+        NMatrix U_matrix(NComplex z, int k);            // U_k matrix of the paper
     
     public:
         Schur(
@@ -124,11 +127,11 @@ class Schur : Prec<T> {
 
         // Accessors
         ImaginaryDomainData<T> get_imag() const;
-        NVector get_phi() const;
+        NVector get_w() const;
         int get_npts() const;
 
         void set_imag(const ImaginaryDomainData<T>& new_imag);
-        void set_phi(const NVector& new_phi);
+        void set_w(const NVector& new_w);
 
         // Static methods
         static NMatrix get_pick(const NVector& yvals, const NVector& lambda_vals);
@@ -136,8 +139,8 @@ class Schur : Prec<T> {
         static NComplex zero_fcn(const NComplex& z);
 
         // Utility methods
-        NVector generate_phis();
-        std::tuple<NVector, NVector, NVector, NVector, NVector> eval_interp(const NVector& z, NComplex (*fn)(const NComplex&) = &zero_fcn, bool map_back = true);
+        NVector generate_ws();
+        std::tuple<NVector, NVector, NVector, NVector, NVector> eval_interp(const NVector& z, NComplex (*fn)(const NComplex&) = &zero_fcn);
 
 };
 
@@ -151,10 +154,10 @@ class Nevanlinna : Prec<T> {
         using typename Prec<T>::NMatrix;
         using typename Prec<T>::NArray;
 
-        NVector a_vec;      // Components of (abcd) matrix
-        NVector b_vec;
-        NVector c_vec;
-        NVector d_vec;
+        NVector P;      // Nevanlinna coeffs
+        NVector Q;
+        NVector R;
+        NVector S;
 
         Schur<T> schur;
 
@@ -167,22 +170,21 @@ class Nevanlinna : Prec<T> {
             double start = 0.0,
             double stop = 1.0,
             int num = 100, 
-            NReal eta = Prec<T>::DEFAULT_ETA,
-            bool map_back = true
+            NReal eta = Prec<T>::DEFAULT_ETA
         );
         
         // Accessors
         Schur<T> get_schur() const;
-        NVector get_avec() const;
-        NVector get_bvec() const;
-        NVector get_cvec() const;
-        NVector get_dvec() const;
+        NVector get_P() const;
+        NVector get_Q() const;
+        NVector get_R() const;
+        NVector get_S() const;
 
         void set_schur(const Schur<T>& new_schur);
-        void set_avec(const NVector& new_avec);
-        void set_bvec(const NVector& new_bvec);
-        void set_cvec(const NVector& new_cvec);
-        void set_dvec(const NVector& new_dvec);
+        void set_P(const NVector& new_P);
+        void set_Q(const NVector& new_Q);
+        void set_R(const NVector& new_R);
+        void set_S(const NVector& new_S);
         
         // Static methods
         static NVector mobius(const NVector& z);
@@ -243,8 +245,12 @@ class H5Writer : Prec<T> {
         NReal eta;
 
         NVector freqs;
+        NVector xi_list;
+
         NVector ng;
-        NVector phis;
+        NVector lambda;
+
+        NVector w_list;
         NVector recon;
 
         Nevanlinna<T> nev;
@@ -277,7 +283,7 @@ class H5Writer : Prec<T> {
         NReal get_eta() const;
         NVector get_freqs() const;
         NVector get_ng() const;
-        NVector get_phis() const;
+        NVector get_w_list() const;
         NVector get_recon() const;
         // Schur get_schur() const;
 
@@ -292,6 +298,11 @@ class H5Writer : Prec<T> {
 template <class T>
 typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_freqs() const {
     return freqs; 
+}
+
+template <class T>
+typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_xi() const {
+    return xi; 
 }
 
 template <class T>
@@ -312,6 +323,7 @@ int ImaginaryDomainData<T>::get_npts() const {
 template <class T>
 void ImaginaryDomainData<T>::set_freqs(const NVector& new_freqs) { 
     freqs = new_freqs;
+    xi = Nevanlinna<T>::mobius(freqs);
     npts = freqs.size();
 }
 
@@ -353,8 +365,8 @@ ImaginaryDomainData<T> Schur<T>::get_imag() const {
 }
 
 template <class T>
-typename Schur<T>::NVector Schur<T>::get_phi() const {
-    return phi;
+typename Schur<T>::NVector Schur<T>::get_w() const {
+    return w;
 }
 
 template <class T>
@@ -368,9 +380,9 @@ void Schur<T>::set_imag(const ImaginaryDomainData<T>& new_imag) {
 }
 
 template <class T>
-void Schur<T>::set_phi(const NVector& new_phi) {
-    phi = new_phi; 
-    npts = new_phi.size();
+void Schur<T>::set_w(const NVector& new_w) {
+    w = new_w; 
+    npts = new_w.size();
 }
 
 template <class T>
@@ -379,23 +391,23 @@ Schur<T> Nevanlinna<T>::get_schur() const {
 }
 
 template <class T>
-typename Nevanlinna<T>::NVector Nevanlinna<T>::get_avec() const {
-    return a_vec;
+typename Nevanlinna<T>::NVector Nevanlinna<T>::get_P() const {
+    return P;
 }
 
 template <class T>
-typename Nevanlinna<T>::NVector Nevanlinna<T>::get_bvec() const {
-    return b_vec;
+typename Nevanlinna<T>::NVector Nevanlinna<T>::get_Q() const {
+    return Q;
 }
 
 template <class T>
-typename Nevanlinna<T>::NVector Nevanlinna<T>::get_cvec() const {
-    return c_vec;
+typename Nevanlinna<T>::NVector Nevanlinna<T>::get_R() const {
+    return R;
 }
 
 template <class T>
-typename Nevanlinna<T>::NVector Nevanlinna<T>::get_dvec() const {
-    return d_vec;
+typename Nevanlinna<T>::NVector Nevanlinna<T>::get_S() const {
+    return S;
 }
 
 template <class T>
@@ -404,23 +416,23 @@ void Nevanlinna<T>::set_schur(const Schur<T>& new_schur) {
 }
 
 template <class T>
-void Nevanlinna<T>::set_avec(const NVector& new_avec) {
-    a_vec = new_avec;
+void Nevanlinna<T>::set_P(const NVector& new_P) {
+    P = new_P;
 }
 
 template <class T>
-void Nevanlinna<T>::set_bvec(const NVector& new_bvec) {
-    b_vec = new_bvec;
+void Nevanlinna<T>::set_Q(const NVector& new_Q) {
+    Q = new_Q;
 }
 
 template <class T>
-void Nevanlinna<T>::set_cvec(const NVector& new_cvec) {
-    c_vec = new_cvec;
+void Nevanlinna<T>::set_R(const NVector& new_R) {
+    R = new_R;
 }
 
 template <class T>
-void Nevanlinna<T>::set_dvec(const NVector& new_dvec) {
-    d_vec = new_dvec;
+void Nevanlinna<T>::set_S(const NVector& new_S) {
+    S = new_S;
 }
 
 template <class T>
@@ -499,8 +511,8 @@ typename H5Writer<T>::NVector H5Writer<T>::get_ng() const {
 }
 
 template <class T>
-typename H5Writer<T>::NVector H5Writer<T>::get_phis() const {
-    return phis;
+typename H5Writer<T>::NVector H5Writer<T>::get_w_list() const {
+    return w_list;
 }
 
 template <class T>
@@ -514,7 +526,7 @@ typename H5Writer<T>::NVector H5Writer<T>::get_recon() const {
 
 template <class T>
 ImaginaryDomainData<T>::ImaginaryDomainData(const NVector& freqs0, const NVector& ng0) : 
-    freqs(freqs0), ng(ng0), lam(Nevanlinna<T>::mobius(ng)), npts(freqs0.size()) {}
+    freqs(freqs0), xi(Nevanlinna<T>::mobius(freqs0)), ng(ng0), lam(Nevanlinna<T>::mobius(ng)), npts(freqs0.size()) {}
 
 template <class T>
 RealDomainData<T>::RealDomainData(double start, double stop, int num, NReal eta) : freqs(num), npts(num) {
@@ -526,13 +538,13 @@ RealDomainData<T>::RealDomainData(double start, double stop, int num, NReal eta)
 }
 
 template <class T>
-Schur<T>::Schur(const ImaginaryDomainData<T>& imag0) : npts(imag0.get_npts()), imag(imag0), phi(npts) {
-    generate_phis();
+Schur<T>::Schur(const ImaginaryDomainData<T>& imag0) : npts(imag0.get_npts()), imag(imag0), w(npts) {
+    generate_ws();
 }
 
 template <class T>
 Nevanlinna<T>::Nevanlinna(NVector& matsubara, NVector& ng) : schur(ImaginaryDomainData<T>(matsubara, ng)), \
-        a_vec(1), b_vec(1), c_vec(1), d_vec(1) {}
+        P(1), Q(1), R(1), S(1) {}
 
 template <class T>
 H5Reader<T>::H5Reader(std::string fname) : 
@@ -548,8 +560,8 @@ H5Reader<T>::H5Reader(std::string fname) :
 template <class T>
 H5Writer<T>::H5Writer(std::string fname, int beta0, double start0, double stop0, int num0, const NReal& eta0, 
                         const NVector& freqs0, const NVector& ng0, const NVector& recon0, const Nevanlinna<T>& nev0)
-    : h5_path (fname),  beta(beta0), start(start0), stop(stop0), num(num0), eta(eta0), freqs(freqs0), ng(ng0), recon(recon0), 
-      phis(nev0.get_schur().get_phi()), nev(nev0) {
+    : h5_path (fname),  beta(beta0), start(start0), stop(stop0), num(num0), eta(eta0), freqs(freqs0), xi_list(Nevanlinna<T>::mobius(freqs0)), 
+      ng(ng0), lambda(Nevanlinna<T>::mobius(ng0)), recon(recon0), w_list(nev0.get_schur().get_w()), nev(nev0) {
     f = new H5::H5File( h5_path, H5F_ACC_TRUNC );
 }
 
@@ -567,43 +579,45 @@ typename RealDomainData<T>::NComplex& RealDomainData<T>::operator[](int i) {
     return freqs[i];
 }
 
+// Forms the U matrix U_k(xi)
 template <class T>
-typename Schur<T>::NMatrix Schur<T>::theta_matrix(NComplex z, int k) {
-    NVector y = imag.get_freqs();
-    NComplex gamma_k = (z - y[k]) / (z - std::conj(y[k]));
-    NMatrix theta (2, 2);
-    theta << gamma_k, phi[k],
-             std::conj(phi[k]) * gamma_k, Prec<T>::ONE;
-    return theta;
+typename Schur<T>::NMatrix Schur<T>::U_matrix(NComplex z, int k) {
+    NVector xi = imag.get_xi();       // xi = h(y), i.e. Mobius transform of Matsubara freqs. Note these should all be purely real (TODO check)
+
+    NComplex blashke = (xi[k] - z) / (Prec<T>::ONE - std::conj(xi[k]) * z);
+    NMatrix U (2, 2);
+    U << blashke, w[k],
+         std::conj(w[k]) * blashke, Prec<T>::ONE;
+    U = U / std::sqrt(Prec<T>::ONE - w[k] * std::conj(w[k]));
+    return U;
 }
 
 /**
- * @brief Generate phi[j] parameters inductively.
+ * @brief Generate w[j] parameters inductively.
  * 
  * @tparam T Precision type to use.
- * @return Schur<T>::NVector Result for phi.
+ * @return Schur<T>::NVector Result for w.
  */
 template <class T>
-typename Schur<T>::NVector Schur<T>::generate_phis() {
-    NVector y = imag.get_freqs();
+typename Schur<T>::NVector Schur<T>::generate_ws() {
+    NVector xi = imag.get_xi();
     NVector lam = imag.get_lambda();
-    phi[0] = lam[0];
+    w[0] = lam[0];
     for (int j = 1; j < npts; j++) {
         NMatrix arr = NMatrix::Identity(2, 2);
         for (int k = 0; k < j; k++) {
-            arr = arr * theta_matrix(y[j], k);
+            arr = arr * U_matrix(xi[j], k);
         }
 
         NComplex num = lam[j] * arr(1, 1) - arr(0, 1);
         NComplex denom = arr(0, 0) - lam[j] * arr(1, 0);
         if (is_zero<T>(num)) {
-            // phi[j] = NComplex{"0", "0"};
-            phi[j] = Prec<T>::ZERO;
+            w[j] = Prec<T>::ZERO;
         } else {
-            phi[j] = num / denom;
+            w[j] = num / denom;
         }
     }
-    return phi;
+    return w;
 }
 
 /**
@@ -613,33 +627,32 @@ typename Schur<T>::NVector Schur<T>::generate_phis() {
  * @tparam T Precision type to use.
  * @param z Points to evaluate the interpolant at.
  * @param fn theta_{k + 1} function.
- * @param map_back 
  * @return Schur<T>::NVector 
  */
 template <class T>
-std::tuple<typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schur<T>::NVector> Schur<T>::eval_interp(const NVector& z, NComplex (*fn)(const NComplex&), bool map_back) {
+std::tuple<typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schur<T>::NVector> Schur<T>::eval_interp(const NVector& z, NComplex (*fn)(const NComplex&)) {
     int n_eval = z.size();
     NVector interp (n_eval);
-    NMatrix abcd (2, 2);
+    NMatrix ncoeffs (2, 2);
     NMatrix factor (2, 2);
-    NVector a (n_eval);
-    NVector b (n_eval);
-    NVector c (n_eval);
-    NVector d (n_eval);
+    NVector p (n_eval);
+    NVector q (n_eval);
+    NVector r (n_eval);
+    NVector s (n_eval);
     for (int i = 0; i < z.size(); i++) {
         NComplex zval = z[i];
-        abcd = NMatrix::Identity(2, 2);
+        ncoeffs = NMatrix::Identity(2, 2);
 
         for (int k = 0; k < npts; k++) {
-            abcd = abcd * theta_matrix(zval, k);
+            ncoeffs = ncoeffs * U_matrix(zval, k);
         }
-        a[i] = abcd(0, 0);
-        b[i] = abcd(0, 1);
-        c[i] = abcd(1, 0);
-        d[i] = abcd(1, 1);
+        p[i] = ncoeffs(0, 0);
+        q[i] = ncoeffs(0, 1);
+        r[i] = ncoeffs(1, 0);
+        s[i] = ncoeffs(1, 1);
 
-        NComplex num = abcd(0, 0) * fn(zval) + abcd(0, 1);
-        NComplex denom = abcd(1, 0) * fn(zval) + abcd(1, 1);
+        NComplex num = ncoeffs(0, 0) * fn(zval) + ncoeffs(0, 1);
+        NComplex denom = ncoeffs(1, 0) * fn(zval) + ncoeffs(1, 1);
         if (is_zero<T>(num)) {
             // interp[i] = NComplex{"0", "0"};
             interp[i] = Prec<T>::ZERO;
@@ -648,22 +661,33 @@ std::tuple<typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schu
         }
         interp[i] = num / denom;
     }
-    if (map_back) {
-        return std::make_tuple(Nevanlinna<T>::inv_mobius(interp), a, b, c, d);
-    }
-    return std::make_tuple(interp, a, b, c, d);
+    // if (map_back) {
+    //     return std::make_tuple(Nevanlinna<T>::inv_mobius(interp), a, b, c, d);
+    // }
+    return std::make_tuple(interp, p, q, r, s);
 }
 
+/**
+ * @brief Evaluates the Nevanlinna interpolant to solve the interpolation problem on the disk D --> D. 
+ * 
+ * @tparam T 
+ * @param start 
+ * @param stop 
+ * @param num 
+ * @param eta 
+ * @return std::tuple<RealDomainData<T>, typename Nevanlinna<T>::NVector> 
+ */
 template <class T>
-std::tuple<RealDomainData<T>, typename Nevanlinna<T>::NVector> Nevanlinna<T>::evaluate(double start, double stop, int num, NReal eta, bool map_back) {
+std::tuple<RealDomainData<T>, typename Nevanlinna<T>::NVector> Nevanlinna<T>::evaluate(double start, double stop, int num, NReal eta) {
 
     // TODO make input function a parameter here
 
     RealDomainData<T> omega (start, stop, num, eta);
-    NVector freqs = omega.get_freqs();
-    // NVector interp = schur.eval_interp(freqs, Schur<T>::zero_fcn, map_back);
+    // NVector freqs = omega.get_freqs();
+    NVector freqs = Nevanlinna<T>::mobius(omega.get_freqs());
     NVector interp;
-    std::tie(interp, a_vec, b_vec, c_vec, d_vec) = schur.eval_interp(freqs, Schur<T>::zero_fcn, map_back);
+    std::tie(interp, P, Q, R, S) = schur.eval_interp(freqs, Schur<T>::zero_fcn);
+
     return std::make_tuple(omega, interp);
 }
 
@@ -708,14 +732,17 @@ void H5Writer<T>::write() {
     this->write_nreal("eta", eta);
 
     this->write_nvector("freqs", freqs);
+    this->write_nvector("xi", xi_list);
     this->write_nvector("ng", ng);
-    this->write_nvector("phis", phis);
+    this->write_nvector("lambda", lambda);
+
+    this->write_nvector("w", w_list);
     this->write_nvector("recon", recon);
 
-    this->write_nvector("a_vec", nev.get_avec());
-    this->write_nvector("b_vec", nev.get_bvec());
-    this->write_nvector("c_vec", nev.get_cvec());
-    this->write_nvector("d_vec", nev.get_dvec());
+    this->write_nvector("P", nev.get_P());
+    this->write_nvector("Q", nev.get_Q());
+    this->write_nvector("R", nev.get_R());
+    this->write_nvector("S", nev.get_S());
 
 }
 

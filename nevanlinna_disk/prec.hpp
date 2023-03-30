@@ -29,10 +29,10 @@
 // ************************** Classes ************************* //
 // ************************************************************ //
 
-// const mpfr_prec_t PRECISION    = mpfr_prec_t(256);
-// const int DIGITS               = 64;
-const mpfr_prec_t PRECISION    = mpfr_prec_t(128);
-const int DIGITS               = 31;
+const mpfr_prec_t PRECISION    = mpfr_prec_t(256);
+const int DIGITS               = 64;
+// const mpfr_prec_t PRECISION    = mpfr_prec_t(128);
+// const int DIGITS               = 31;
 const mpfr_rnd_t RRND          = MPFR_RNDN;
 
 // mpf_set_default_prec(PRECISION);
