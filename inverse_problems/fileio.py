@@ -10,7 +10,7 @@ gmp.get_context().precision = prec
 ONE = gmp.mpc(1, 0)
 I = gmp.mpc(0, 1)
 
-def write_gmp_input_h5(fname, beta, freqs, ng):
+def write_gmp_input_h5(fname, beta, freqs, ng, normalization=1.0):
     """
     Writes spectral function data to the appropriate file.
 
@@ -25,13 +25,14 @@ def write_gmp_input_h5(fname, beta, freqs, ng):
     f['freqs/imag'] = freqs_imag
     f['ng/real'] = ng_real
     f['ng/imag'] = ng_imag
+    f['normalization'] = normalization
     f.close()
     return fname
 
 def read_gmp_input_h5(fname):
     """
-    Reads input simulation data from the appropriate file. Note that the HDF5 file is 
-    assumed to contain the extended precision numbers as strings. 
+    Reads input simulation data from the appropriate file. Note that the HDF5 file is
+    assumed to contain the extended precision numbers as strings.
     """
     f = h5py.File(fname, 'r')
     beta = f['beta'][()]
@@ -51,8 +52,8 @@ def read_gmp_input_h5(fname):
 
 def read_gmp_output_h5(fname):
     """
-    Reads input simulation data from the appropriate file. Note that the HDF5 file is 
-    assumed to contain the extended precision numbers as strings. 
+    Reads input simulation data from the appropriate file. Note that the HDF5 file is
+    assumed to contain the extended precision numbers as strings.
     """
     f = h5py.File(fname, 'r')
     beta = f['beta'][(0)]
