@@ -33,29 +33,29 @@ int main(int argc, char const *argv[]) {
     std::cout << "Number of measured Matsubara frequencies: " << freqs.size() << std::endl;
     std::cout << "Beta is: " << beta << std::endl;
 
-    std::cout << std::endl << "Matsubara frequencies:" << std::endl;
-    print_vector<mpfr::mpreal>(freqs);
-    std::cout << std::endl << "Green's function at Matsubara frequencies:" << std::endl;
-    print_vector<mpfr::mpreal>(ng);
-    
+    // std::cout << std::endl << "Matsubara frequencies:" << std::endl;
+    // print_vector<mpfr::mpreal>(freqs);
+    // std::cout << std::endl << "Green's function at Matsubara frequencies:" << std::endl;
+    // print_vector<mpfr::mpreal>(ng);
+
     Prec<mpfr::mpreal>::NReal eta (eta_str);
     Nevanlinna<mpfr::mpreal> nevanlinna (freqs, ng);
 
     // TODO figuring out problem with NANs
-    std::cout << std::endl << "Phi vals: " << std::endl;
-    print_vector<mpfr::mpreal>(nevanlinna.get_schur().get_phi());
-    
+    // std::cout << std::endl << "Phi vals: " << std::endl;
+    // print_vector<mpfr::mpreal>(nevanlinna.get_schur().get_phi());
+
     RealDomainData<mpfr::mpreal> omegas;
     Prec<mpfr::mpreal>::NVector rho_recon;
     double start = 0.0;
-    double stop = 0.2;
-    int num = 500;    // Number of points for recon
+    double stop = 2.0;
+    int num = 1000;    // Number of points for recon
     std::tie(omegas, rho_recon) = nevanlinna.evaluate(start, stop, num, eta, true);
 
-    std::cout << std::endl << "Reconstructed frequencies:" << std::endl;
-    print_vector<mpfr::mpreal>(omegas.get_freqs());
-    std::cout << std::endl << "Reconstructed spectral function:" << std::endl;
-    print_vector<mpfr::mpreal>(rho_recon);
+    // std::cout << std::endl << "Reconstructed frequencies:" << std::endl;
+    // print_vector<mpfr::mpreal>(omegas.get_freqs());
+    // std::cout << std::endl << "Reconstructed spectral function:" << std::endl;
+    // print_vector<mpfr::mpreal>(rho_recon);
 
     // Write to output file
     H5Writer<mpfr::mpreal> fout (out_name, beta, start, stop, num, eta, freqs, ng, rho_recon, nevanlinna);
@@ -64,3 +64,4 @@ int main(int argc, char const *argv[]) {
 
     return 0;
 }
+

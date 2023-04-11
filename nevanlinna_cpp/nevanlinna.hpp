@@ -18,7 +18,7 @@
 #include <gmpxx.h>
 #include <H5Cpp.h>
 
-#include <boost/math/differentiation/autodiff.hpp>
+// #include <boost/math/differentiation/autodiff.hpp>
 
 #include "prec.hpp"
 
@@ -29,8 +29,8 @@
 
 /**
  * @brief Container for imaginary domain (Euclidean frequency) data.
- * 
- * @tparam T Precision type to use. 
+ *
+ * @tparam T Precision type to use.
  */
 template <class T>
 class ImaginaryDomainData : Prec<T> {
@@ -62,9 +62,9 @@ class ImaginaryDomainData : Prec<T> {
 };
 
 /**
- * @brief Container for real domain data. 
- * 
- * @tparam T Precision type to use. 
+ * @brief Container for real domain data.
+ *
+ * @tparam T Precision type to use.
  */
 template <class T>
 class RealDomainData : Prec<T> {
@@ -77,7 +77,7 @@ class RealDomainData : Prec<T> {
         NVector freqs;
         NVector rho;
         int npts;
-    
+
     public:
         // Default arguments go in the header file
         RealDomainData(
@@ -100,7 +100,7 @@ class RealDomainData : Prec<T> {
 
 /**
  * Container class for the Schur interpolation algorithm.
- * 
+ *
  */
 template <class T>
 class Schur : Prec<T> {
@@ -116,7 +116,7 @@ class Schur : Prec<T> {
         NVector phi;
 
         NMatrix theta_matrix(NComplex z, int k);
-    
+
     public:
         Schur(
             const ImaginaryDomainData<T>& imag0
@@ -143,7 +143,7 @@ class Schur : Prec<T> {
 
 template <class T>
 class Nevanlinna : Prec<T> {
-    
+
     private:
         using typename Prec<T>::NReal;
         using typename Prec<T>::NComplex;
@@ -166,11 +166,11 @@ class Nevanlinna : Prec<T> {
         std::tuple<RealDomainData<T>, NVector> evaluate(
             double start = 0.0,
             double stop = 1.0,
-            int num = 100, 
+            int num = 100,
             NReal eta = Prec<T>::DEFAULT_ETA,
             bool map_back = true
         );
-        
+
         // Accessors
         Schur<T> get_schur() const;
         NVector get_avec() const;
@@ -183,7 +183,7 @@ class Nevanlinna : Prec<T> {
         void set_bvec(const NVector& new_bvec);
         void set_cvec(const NVector& new_cvec);
         void set_dvec(const NVector& new_dvec);
-        
+
         // Static methods
         static NVector mobius(const NVector& z);
         static NVector inv_mobius(const NVector& z);
@@ -192,7 +192,7 @@ class Nevanlinna : Prec<T> {
 
 template <class T>
 class H5Reader : Prec<T> {
-    
+
     private:
 
         using typename Prec<T>::NComplex;
@@ -233,7 +233,7 @@ class H5Writer : Prec<T> {
         using typename Prec<T>::NReal;
         using typename Prec<T>::NComplex;
         using typename Prec<T>::NVector;
-    
+
         std::string h5_path;
         H5::H5File* f;
         int beta;
@@ -255,13 +255,13 @@ class H5Writer : Prec<T> {
 
     public:
         H5Writer(
-            std::string fname, 
+            std::string fname,
             int beta0,
-            double start0, 
-            double stop0, 
-            int num0, 
+            double start0,
+            double stop0,
+            int num0,
             const NReal& eta0,
-            const NVector& freqs0, 
+            const NVector& freqs0,
             const NVector& ng0,
             const NVector& recon0,
             const Nevanlinna<T>& nev0
@@ -289,7 +289,7 @@ class H5Writer : Prec<T> {
 
 template <class T>
 typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_freqs() const {
-    return freqs; 
+    return freqs;
 }
 
 template <class T>
@@ -308,13 +308,13 @@ int ImaginaryDomainData<T>::get_npts() const {
 }
 
 template <class T>
-void ImaginaryDomainData<T>::set_freqs(const NVector& new_freqs) { 
+void ImaginaryDomainData<T>::set_freqs(const NVector& new_freqs) {
     freqs = new_freqs;
     npts = freqs.size();
 }
 
 template <class T>
-void ImaginaryDomainData<T>::set_ng(const NVector& new_ng) { 
+void ImaginaryDomainData<T>::set_ng(const NVector& new_ng) {
     ng = new_ng;
     lam = Nevanlinna<T>::mobius(new_ng);
 }
@@ -335,13 +335,13 @@ int RealDomainData<T>::get_npts() const {
 }
 
 template <class T>
-void RealDomainData<T>::set_freqs(const NVector& new_freqs) { 
+void RealDomainData<T>::set_freqs(const NVector& new_freqs) {
     freqs = new_freqs;
     npts = freqs.size();
 }
 
 template <class T>
-void RealDomainData<T>::set_rho(const NVector& new_rho) { 
+void RealDomainData<T>::set_rho(const NVector& new_rho) {
     rho = new_rho;
 }
 
@@ -367,7 +367,7 @@ void Schur<T>::set_imag(const ImaginaryDomainData<T>& new_imag) {
 
 template <class T>
 void Schur<T>::set_phi(const NVector& new_phi) {
-    phi = new_phi; 
+    phi = new_phi;
     npts = new_phi.size();
 }
 
@@ -433,12 +433,12 @@ int H5Reader<T>::get_beta() const {
 
 template <class T>
 std::vector<std::string> H5Reader<T>::get_freqs_str() const {
-    return freq_str; 
+    return freq_str;
 }
 
 template <class T>
 std::vector<std::string> H5Reader<T>::get_ng_real_str() const {
-    return ngr_str; 
+    return ngr_str;
 }
 
 template <class T>
@@ -506,7 +506,7 @@ typename H5Writer<T>::NVector H5Writer<T>::get_recon() const {
 // ************************************************************ //
 
 template <class T>
-ImaginaryDomainData<T>::ImaginaryDomainData(const NVector& freqs0, const NVector& ng0) : 
+ImaginaryDomainData<T>::ImaginaryDomainData(const NVector& freqs0, const NVector& ng0) :
     freqs(freqs0), ng(ng0), lam(Nevanlinna<T>::mobius(ng)), npts(freqs0.size()) {}
 
 template <class T>
@@ -528,9 +528,9 @@ Nevanlinna<T>::Nevanlinna(NVector& matsubara, NVector& ng) : schur(ImaginaryDoma
         a_vec(1), b_vec(1), c_vec(1), d_vec(1) {}
 
 template <class T>
-H5Reader<T>::H5Reader(std::string fname) : 
-    h5_path (fname), freq_str (read_field("freqs/imag")), ngr_str (read_field("ng/real")), ngi_str (read_field("ng/imag")), 
-    npts (freq_str.size()), beta (read_int("beta")), freqs (npts), ng (npts) 
+H5Reader<T>::H5Reader(std::string fname) :
+    h5_path (fname), freq_str (read_field("freqs/imag")), ngr_str (read_field("ng/real")), ngi_str (read_field("ng/imag")),
+    npts (freq_str.size()), beta (read_int("beta")), freqs (npts), ng (npts)
 {
     for (int ii = 0; ii < npts; ii++) {
         freqs[ii] = NComplex{"0", freq_str[ii]};
@@ -539,7 +539,7 @@ H5Reader<T>::H5Reader(std::string fname) :
 }
 
 template <class T>
-H5Writer<T>::H5Writer(std::string fname, int beta0, double start0, double stop0, int num0, const NReal& eta0, 
+H5Writer<T>::H5Writer(std::string fname, int beta0, double start0, double stop0, int num0, const NReal& eta0,
                         const NVector& freqs0, const NVector& ng0, const NVector& recon0, const Nevanlinna<T>& nev0)
     : h5_path (fname),  beta(beta0), start(start0), stop(stop0), num(num0), eta(eta0), freqs(freqs0), ng(ng0), recon(recon0), nev(nev0)
 {
@@ -572,7 +572,7 @@ typename Schur<T>::NMatrix Schur<T>::theta_matrix(NComplex z, int k) {
 
 /**
  * @brief Generate phi[j] parameters inductively.
- * 
+ *
  * @tparam T Precision type to use.
  * @return Schur<T>::NVector Result for phi.
  */
@@ -600,14 +600,14 @@ typename Schur<T>::NVector Schur<T>::generate_phis() {
 }
 
 /**
- * @brief Evaluates the Schur interpolant and analytically continues from the measured points to the 
+ * @brief Evaluates the Schur interpolant and analytically continues from the measured points to the
  * specified points in the unit disk.
- * 
+ *
  * @tparam T Precision type to use.
  * @param z Points to evaluate the interpolant at.
  * @param fn theta_{k + 1} function.
- * @param map_back 
- * @return Schur<T>::NVector 
+ * @param map_back
+ * @return Schur<T>::NVector
  */
 template <class T>
 std::tuple<typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schur<T>::NVector> Schur<T>::eval_interp(const NVector& z, NComplex (*fn)(const NComplex&), bool map_back) {
@@ -679,7 +679,7 @@ std::vector<std::string> H5Reader<T>::read_field(std::string dset_path) {
     H5::DataSet dset = f.openDataSet(dset_path);
     H5::DataSpace dspace = dset.getSpace();
     hsize_t rank;
-    hsize_t dims[2];  
+    hsize_t dims[2];
     rank = dspace.getSimpleExtentDims(dims, nullptr);
     std::vector<char*> data;
     data.resize(dims[0]);
@@ -771,8 +771,8 @@ void H5Writer<T>::write_nvector(std::string dset_path, NVector data) {
 
 /**
  * @brief Mobius transformation C^+ -> D of a list of input data.
- * 
- * @tparam T Precision type to use. 
+ *
+ * @tparam T Precision type to use.
  * @param z Input vector for mobius transformation. Each element should be in the upper half plane.
  * @return ImaginaryDomainData<T>::NVector Mobius transformed vector. Each element should be in the unit disk.
  */
@@ -787,8 +787,8 @@ typename Nevanlinna<T>::NVector Nevanlinna<T>::mobius(const NVector& z) {
 
 /**
  * @brief Inverse mobius transformation D -> C^+.
- * 
- * @tparam T Precision type to use. 
+ *
+ * @tparam T Precision type to use.
  * @param z Input vector for inverse transformation. Each element should be in the unit disk.
  * @return ImaginaryDomainData<T>::NVector Inverse transformed vector. Each element should be in the upper half plane.
  */
@@ -802,15 +802,15 @@ typename Nevanlinna<T>::NVector Nevanlinna<T>::inv_mobius(const NVector& z) {
 }
 
 /**
- * @brief Computes the Pick matrix from a given set of Y-values (mobius-transformed frequencies) and 
- * lambda-values (mobius-transformed correlators). 
- * 
+ * @brief Computes the Pick matrix from a given set of Y-values (mobius-transformed frequencies) and
+ * lambda-values (mobius-transformed correlators).
+ *
  * @tparam T Base data type.
  * @param yvals Mobius-transformed Euclidean frequencies.
  * @param lambda_vals Mobius-transformed correlation function data.
  * @return Schur<T>::NMatrix Pick matrix of data.
  */
-template <class T> 
+template <class T>
 typename Schur<T>::NMatrix Schur<T>::get_pick(const NVector& yvals, const NVector& lambda_vals) {
     int N = yvals.size();
     NMatrix pick(N, N);
@@ -825,15 +825,15 @@ typename Schur<T>::NMatrix Schur<T>::get_pick(const NVector& yvals, const NVecto
 }
 
 /**
- * @brief Computes the Pick matrix from a given set of Euclidean frequences (should be 
+ * @brief Computes the Pick matrix from a given set of Euclidean frequences (should be
  * in C^+) and correlation function data (should be in C^+).
- * 
+ *
  * @tparam T Base type of data.
  * @param freqs Euclidean frequencies to compute Pick matrix with.
  * @param ng Correlation function data to compute Pick matrix with.
  * @return Schur<T>::NMatrix Pick matrix of data.
  */
-template <class T> 
+template <class T>
 typename Schur<T>::NMatrix Schur<T>::get_pick_realspace(const NVector& freqs, const NVector& ng) {
     NVector yvals = Nevanlinna<T>::mobius(freqs);
     NVector lambda_vals = Nevanlinna<T>::mobius(ng);
