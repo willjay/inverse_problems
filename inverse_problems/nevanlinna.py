@@ -15,6 +15,12 @@ def moebius(z):
 def inverse_moebius(z):
     return 1j * (1 + z) / (1 - z)
 
+def blashke(z, a):
+    """
+    Returns the Blashke product b_a(z) := (|a| / a) (a - z) / (1 - a^* z). Note that a, z\in\mathbb{D} should be 
+    elements of the unit disk. 
+    """
+    return (np.abs(a) / a) * (a - z) / (1 - np.conj(a) * z)
 
 def theta_map(mat, z):
     """
