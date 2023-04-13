@@ -29,6 +29,8 @@
 // ************************** Classes ************************* //
 // ************************************************************ //
 
+// const mpfr_prec_t PRECISION    = mpfr_prec_t(1028);
+// const int DIGITS               = 128;
 const mpfr_prec_t PRECISION    = mpfr_prec_t(256);
 const int DIGITS               = 64;
 // const mpfr_prec_t PRECISION    = mpfr_prec_t(128);
