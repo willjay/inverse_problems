@@ -5,7 +5,6 @@
 #include <time.h>
 #include <cmath>
 #include <tuple>
-// #include <mpfr.h>
 #include <complex>
 #include <vector>
 #include <eigen3/unsupported/Eigen/MPRealSupport>
@@ -14,11 +13,12 @@
 #include <eigen3/Eigen/SVD>
 #include <eigen3/Eigen/QR>
 #include <eigen3/Eigen/Cholesky>
+#include <eigen3/Eigen/Eigenvalues>
 #include <mpreal.h>
 #include <gmpxx.h>
 #include <H5Cpp.h>
 
-#include <boost/math/differentiation/autodiff.hpp>
+// #include <boost/math/differentiation/autodiff.hpp>
 
 #include "prec.hpp"
 
@@ -40,6 +40,7 @@ class ImaginaryDomainData : Prec<T> {
         using typename Prec<T>::NComplex;
         using typename Prec<T>::NVector;
         using typename Prec<T>::NMatrix;
+        using typename Prec<T>::NVectorArray;
 
         NVector freqs;          // Matsubara frequencies
         NVector zeta;           // Mobius transform of Matsubara frequencies.
@@ -49,6 +50,7 @@ class ImaginaryDomainData : Prec<T> {
 
         NMatrix pick;           // Pick matrix.
         NVector eigs;           // Eigenvalues of Pick matrix.
+        NVectorArray eigvecs;   // Eigenvectors of Pick matrix.
         bool is_valid;          // true if Pick matrix satisfies criterion.
 
     public:
@@ -67,6 +69,7 @@ class ImaginaryDomainData : Prec<T> {
         NVector get_w() const;
         NMatrix get_pick() const;
         NVector get_pick_eigs() const;
+        NVectorArray get_pick_eigvecs() const;
         bool get_valid() const;
         int get_npts() const;
         void set_freqs(const NVector& new_freqs);
@@ -161,7 +164,6 @@ class Nevanlinna : Prec<T> {
         using typename Prec<T>::NComplex;
         using typename Prec<T>::NVector;
         using typename Prec<T>::NMatrix;
-        using typename Prec<T>::NArray;
 
         NVector P;      // Nevanlinna coeffs
         NVector Q;
@@ -253,6 +255,8 @@ class H5Writer : Prec<T> {
         using typename Prec<T>::NReal;
         using typename Prec<T>::NComplex;
         using typename Prec<T>::NVector;
+        using typename Prec<T>::NMatrix;
+        using typename Prec<T>::NVectorArray;
     
         std::string h5_path;
         H5::H5File* f;
@@ -344,6 +348,11 @@ typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_pick_eigs()
 }
 
 template <class T>
+typename ImaginaryDomainData<T>::NVectorArray ImaginaryDomainData<T>::get_pick_eigvecs() const {
+    return eigvecs;
+}
+
+template <class T>
 bool ImaginaryDomainData<T>::get_valid() const {
     return is_valid;
 }
@@ -366,17 +375,25 @@ void ImaginaryDomainData<T>::init_pick() {
 
 template <class T>
 void ImaginaryDomainData<T>::factor_pick() {
-    // eigs = pick.eigenvalues();
-    // std::cout << "Eigenvalues: " << pick.eigenvalues() << std::endl;
-    NMatrix tmp (npts, 1);
-    tmp = pick.eigenvalues();
-    // std::cout << "tmp eigenvalues: " << tmp << std::endl;
-    // std::cout << "tmp eigenvalues at i = 5: " << tmp(5) << std::endl;
-    for (int ii = 0; ii < npts; ii++) {
-        eigs[ii] = tmp(ii);
+
+    // Get eigenvalues and eigenvectors
+    Eigen::ComplexEigenSolver<NMatrix> eigsolver (pick);
+    NMatrix evals = eigsolver.eigenvalues();
+    NMatrix evecs = eigsolver.eigenvectors();
+    
+    for (int i = 0; i < npts; i++) {
+        eigs[i] = evals(i);
+        NMatrix icol = evecs.col(i);
+        for (int j = 0; j < npts; j++) {
+            eigvecs[i][j] = icol(j);
+        }
     }
+
     std::cout << std::endl << "Eigenvalues: ";
     print_vector<T>(eigs);
+    std::cout << std::endl << "Eigenvectors: ";
+    print_vector_array<T>(eigvecs);
+
 }
 
 template <class T>
@@ -610,7 +627,8 @@ typename H5Writer<T>::NVector H5Writer<T>::get_recon() const {
 
 template <class T>
 ImaginaryDomainData<T>::ImaginaryDomainData(const NVector& freqs0, const NVector& ng0) : 
-    npts(freqs0.size()), freqs(freqs0), zeta(Nevanlinna<T>::mobius(freqs0)), ng(ng0), w(Nevanlinna<T>::mobius(ng)), pick(npts, npts), eigs(npts)
+    npts(freqs0.size()), freqs(freqs0), zeta(Nevanlinna<T>::mobius(freqs0)), ng(ng0), w(Nevanlinna<T>::mobius(ng)), pick(npts, npts), eigs(npts), 
+    eigvecs (npts, NVector(npts))
     {
         init_pick();
         is_valid = pick_criterion();
@@ -826,28 +844,44 @@ std::vector<std::string> H5Reader<T>::read_field(std::string dset_path) {
 
 template <class T>
 void H5Writer<T>::write() {
+
+    // Write input parameters and their Cayley transforms
     this->write_int("beta", beta);
     this->write_int("num", num);
-
     this->write_double("start", start);
     this->write_double("stop", stop);
-
     this->write_nreal("eta", eta);
-
     this->write_nvector("freqs", freqs);
     this->write_nvector("zeta_list", zeta_list);
     this->write_nvector("ng", ng);
     this->write_nvector("w_list", w_list);
 
+    // Write recon
     this->write_nvector("phi", phi_list);
     this->write_nvector("recon", recon);
 
+    // Write Nevanlinna coefficients
     this->write_nvector("P", nev.get_P());
     this->write_nvector("Q", nev.get_Q());
     this->write_nvector("R", nev.get_R());
     this->write_nvector("S", nev.get_S());
 
-    this->write_nvector("eigs", nev.get_schur().get_imag().get_pick_eigs());
+    // Write Pick matrix, eigenvalues, and eigenvectors
+    ImaginaryDomainData<T> im_data = nev.get_schur().get_imag();
+    int npts = im_data.get_npts();
+    NVectorArray eigvecs = im_data.get_pick_eigvecs();
+    NMatrix pick = im_data.get_pick();
+    NVector pick_vec (npts);
+
+    this->write_nvector("eigs", im_data.get_pick_eigs());                       // Write Pick eigenvalues.
+    for (int i = 0; i < npts; i++) {
+        // Write column of Pick matrix
+        for (int j = 0; j < npts; j++) {
+            pick_vec[j] = pick(i, j);
+        }
+        this->write_nvector("eigvecs_" + std::to_string(i), eigvecs[i]);        // Write Pick eigenvectors.
+        this->write_nvector("pick_" + std::to_string(i), pick_vec);             // Write rows of Pick matrix.
+    }
 
 }
 
