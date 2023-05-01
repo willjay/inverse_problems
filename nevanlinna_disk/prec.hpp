@@ -1,12 +1,12 @@
 /**
  * @file prec.hpp
  * @author Patrick Oare
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2022-11-10
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  * Template class for precision numbers.
  */
 
@@ -29,7 +29,7 @@
 // ************************** Classes ************************* //
 // ************************************************************ //
 
-const mpfr_prec_t PRECISION    = mpfr_prec_t(256);
+const mpfr_prec_t PRECISION    = mpfr_prec_t(128);
 const int DIGITS               = 64;
 // const mpfr_prec_t PRECISION    = mpfr_prec_t(128);
 // const int DIGITS               = 31;
@@ -40,11 +40,11 @@ const mpfr_rnd_t RRND          = MPFR_RNDN;
 // mpfr::mpreal::set_default_prec(mpfr::digits2bits(DIGITS));
 
 /**
- * @brief Template class for precision numbers. The abstract class T should be a 
+ * @brief Template class for precision numbers. The abstract class T should be a
  * number type, generally either a double or mpfr::mpreal.
- * Note that templates should all be defined in .h files: 
+ * Note that templates should all be defined in .h files:
  *          https://isocpp.org/wiki/faq/templates#templates-defn-vs-decl
- * 
+ *
  * @tparam T Number type to use (double, mpfr::mpreal)
  */
 template <class T>
@@ -112,10 +112,10 @@ template <> const typename Prec<mpfr::mpreal>::NReal Prec<mpfr::mpreal>::       
 // ************************************************************ //
 
 /**
- * @brief Converts an Prec<T>::NMatrix row vector to a Prec<T>::NVector. Intended 
- * to be used in conjunction with .row, i.e. if m is a Prec<T>::NMatrix and one wants 
+ * @brief Converts an Prec<T>::NMatrix row vector to a Prec<T>::NVector. Intended
+ * to be used in conjunction with .row, i.e. if m is a Prec<T>::NMatrix and one wants
  * to access its k'th row, use row_to_vector(m.row(k))
- * 
+ *
  * @tparam T Base type.
  * @param rowvec Row vector to convert.
  * @return Prec<T>::NVector Converted row vector.
@@ -132,10 +132,10 @@ typename Prec<T>::NVector Prec<T>::row_to_vector(Prec<T>::NMatrix rowvec) {
 }
 
 /**
- * @brief Converts an Prec<T>::NMatrix column vector to a Prec<T>::NVector. Intended 
- * to be used in conjunction with .cols, i.e. if m is a Prec<T>::NMatrix and one wants 
+ * @brief Converts an Prec<T>::NMatrix column vector to a Prec<T>::NVector. Intended
+ * to be used in conjunction with .cols, i.e. if m is a Prec<T>::NMatrix and one wants
  * to access its k'th column, use col_to_vector(m.col(k))
- * 
+ *
  * @tparam T Base type.
  * @param colvec Column vector to convert.
  * @return Prec<T>::NVector Converted column vector.
@@ -152,7 +152,7 @@ typename Prec<T>::NVector Prec<T>::col_to_vector(Prec<T>::NMatrix colvec) {
 
 /**
  * @brief Prints a complex number of base type T.
- * 
+ *
  * @tparam T Base type of complex number.
  * @param c Complex number to print.
  */
@@ -163,7 +163,7 @@ void print_complex(const typename Prec<T>::NComplex c) {
 
 /**
  * @brief Prints a complex vector of base type T.
- * 
+ *
  * @tparam T Base type of vector.
  * @param v Vector to print.
  */
@@ -176,13 +176,13 @@ void print_vector(const typename Prec<T>::NVector v) {
             std::cout << ", ";
         } else {
             std::cout << "]" << std::endl;
-        }   
+        }
     }
 }
 
 /**
  * @brief Prints a complex matrix of base type T.
- * 
+ *
  * @tparam T Base type of matrix.
  * @param m Matrix to print.
  */
@@ -207,9 +207,9 @@ bool is_zero(const typename Prec<T>::NComplex c) {
 
 /**
  * @brief Returns the real part of a NVector as a string.
- * 
- * @tparam T 
- * @return std::vector<std::string> 
+ *
+ * @tparam T
+ * @return std::vector<std::string>
  */
 template <class T>
 std::vector<std::string> vec_to_rstring(const typename Prec<T>::NVector vec) {
@@ -223,9 +223,9 @@ std::vector<std::string> vec_to_rstring(const typename Prec<T>::NVector vec) {
 
 /**
  * @brief Returns the imaginary part of a NVector as a string.
- * 
- * @tparam T 
- * @return std::vector<std::string> 
+ *
+ * @tparam T
+ * @return std::vector<std::string>
  */
 template <class T>
 std::vector<std::string> vec_to_istring(const typename Prec<T>::NVector vec) {
