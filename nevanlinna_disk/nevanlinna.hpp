@@ -5,7 +5,6 @@
 #include <time.h>
 #include <cmath>
 #include <tuple>
-// #include <mpfr.h>
 #include <complex>
 #include <vector>
 #include <eigen3/unsupported/Eigen/MPRealSupport>
@@ -14,11 +13,12 @@
 #include <eigen3/Eigen/SVD>
 #include <eigen3/Eigen/QR>
 #include <eigen3/Eigen/Cholesky>
+#include <eigen3/Eigen/Eigenvalues>
 #include <mpreal.h>
 #include <gmpxx.h>
 #include <H5Cpp.h>
 
-// #include <boost/math/differentiation/autodiff.hpp>
+// // #include <boost/math/differentiation/autodiff.hpp>
 
 #include "prec.hpp"
 
@@ -39,24 +39,38 @@ class ImaginaryDomainData : Prec<T> {
         using typename Prec<T>::NReal;
         using typename Prec<T>::NComplex;
         using typename Prec<T>::NVector;
+        using typename Prec<T>::NMatrix;
+        using typename Prec<T>::NVectorArray;
 
         NVector freqs;          // Matsubara frequencies
-        NVector xi;             // Mobius transform of Matsubara frequencies.
-        NVector ng;             // Negative of Green's function (nevanlinna)
-        NVector lam;            // Mobius transform of NG.
+        NVector zeta;           // Mobius transform of Matsubara frequencies.
+        NVector ng;             // Negative of Green's function (nevanlinna).
+        NVector w;              // Mobius transform of NG.
         int npts;
+
+        NMatrix pick;           // Pick matrix.
+        NVector eigs;           // Eigenvalues of Pick matrix.
+        NVectorArray eigvecs;   // Eigenvectors of Pick matrix.
+        bool is_valid;          // true if Pick matrix satisfies criterion.
 
     public:
         ImaginaryDomainData(
-            const NVector& freq0,
+            const NVector& freqs0,
             const NVector& ng0
         );
+        void init_pick();
+        void factor_pick();
+        bool pick_criterion();
 
         // Accessors
         NVector get_freqs() const;
-        NVector get_xi() const;
+        NVector get_zeta() const;
         NVector get_ng() const;
-        NVector get_lambda() const;
+        NVector get_w() const;
+        NMatrix get_pick() const;
+        NVector get_pick_eigs() const;
+        NVectorArray get_pick_eigvecs() const;
+        bool get_valid() const;
         int get_npts() const;
         void set_freqs(const NVector& new_freqs);
         void set_ng(const NVector& new_ng);
@@ -116,7 +130,7 @@ class Schur : Prec<T> {
 
         int npts;
         ImaginaryDomainData<T> imag;
-        NVector w;                                    // w_k^{(k-1)} of the paper
+        NVector phi;                                     // phi_k := w_k^{(k-1)} of the paper
 
         NMatrix U_matrix(NComplex z, int k);            // U_k matrix of the paper
 
@@ -127,19 +141,17 @@ class Schur : Prec<T> {
 
         // Accessors
         ImaginaryDomainData<T> get_imag() const;
-        NVector get_w() const;
+        NVector get_phi() const;
         int get_npts() const;
 
         void set_imag(const ImaginaryDomainData<T>& new_imag);
-        void set_w(const NVector& new_w);
+        void set_phi(const NVector& new_phi);
 
         // Static methods
-        static NMatrix get_pick(const NVector& yvals, const NVector& lambda_vals);
-        static NMatrix get_pick_realspace(const NVector& freqs, const NVector& ng);
         static NComplex zero_fcn(const NComplex& z);
 
         // Utility methods
-        NVector generate_ws();
+        NVector generate_phis();
         std::tuple<NVector, NVector, NVector, NVector, NVector> eval_interp(const NVector& z, NComplex (*fn)(const NComplex&) = &zero_fcn);
 
 };
@@ -152,7 +164,6 @@ class Nevanlinna : Prec<T> {
         using typename Prec<T>::NComplex;
         using typename Prec<T>::NVector;
         using typename Prec<T>::NMatrix;
-        using typename Prec<T>::NArray;
 
         NVector P;      // Nevanlinna coeffs
         NVector Q;
@@ -214,7 +225,12 @@ class H5Reader : Prec<T> {
         NVector freqs;
         NVector ng;
 
+        double start;
+        double stop;
+        int num;
+
         int read_int(std::string dset_path);
+        double read_double(std::string dset_path);
         std::vector<std::string> read_field(std::string dset_path);
 
     public:
@@ -229,6 +245,10 @@ class H5Reader : Prec<T> {
         NVector get_freqs() const;
         NVector get_ng() const;
 
+        double get_start() const;
+        double get_stop() const;
+        int get_num() const;
+
 };
 
 template <class T>
@@ -239,6 +259,8 @@ class H5Writer : Prec<T> {
         using typename Prec<T>::NReal;
         using typename Prec<T>::NComplex;
         using typename Prec<T>::NVector;
+        using typename Prec<T>::NMatrix;
+        using typename Prec<T>::NVectorArray;
 
         std::string h5_path;
         H5::H5File* f;
@@ -249,12 +271,12 @@ class H5Writer : Prec<T> {
         NReal eta;
 
         NVector freqs;
-        NVector xi_list;
+        NVector zeta_list;
 
         NVector ng;
-        NVector lambda;
-
         NVector w_list;
+
+        NVector phi_list;
         NVector recon;
 
         Nevanlinna<T> nev;
@@ -294,7 +316,7 @@ class H5Writer : Prec<T> {
         NReal get_eta() const;
         NVector get_freqs() const;
         NVector get_ng() const;
-        NVector get_w_list() const;
+        NVector get_phi_list() const;
         NVector get_recon() const;
         // Schur get_schur() const;
 
@@ -312,8 +334,8 @@ typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_freqs() con
 }
 
 template <class T>
-typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_xi() const {
-    return xi;
+typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_zeta() const {
+    return zeta;
 }
 
 template <class T>
@@ -322,8 +344,28 @@ typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_ng() const 
 }
 
 template <class T>
-typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_lambda() const {
-    return lam;
+typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_w() const {
+    return w;
+}
+
+template <class T>
+typename ImaginaryDomainData<T>::NMatrix ImaginaryDomainData<T>::get_pick() const {
+    return pick;
+}
+
+template <class T>
+typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_pick_eigs() const {
+    return eigs;
+}
+
+template <class T>
+typename ImaginaryDomainData<T>::NVectorArray ImaginaryDomainData<T>::get_pick_eigvecs() const {
+    return eigvecs;
+}
+
+template <class T>
+bool ImaginaryDomainData<T>::get_valid() const {
+    return is_valid;
 }
 
 template <class T>
@@ -332,16 +374,60 @@ int ImaginaryDomainData<T>::get_npts() const {
 }
 
 template <class T>
+void ImaginaryDomainData<T>::init_pick() {
+    for (int i = 0; i < npts; i++) {
+        for (int j = 0; j < npts; j++) {
+            NComplex num = Prec<T>::ONE - w[i] * std::conj(w[j]);
+            NComplex denom = Prec<T>::ONE - zeta[i] * std::conj(zeta[j]);
+            pick(i, j) = num / denom;
+        }
+    }
+}
+
+template <class T>
+void ImaginaryDomainData<T>::factor_pick() {
+
+    // Get eigenvalues and eigenvectors
+    Eigen::ComplexEigenSolver<NMatrix> eigsolver (pick);
+    NMatrix evals = eigsolver.eigenvalues();
+    NMatrix evecs = eigsolver.eigenvectors();
+
+    for (int i = 0; i < npts; i++) {
+        eigs[i] = evals(i);
+        NMatrix icol = evecs.col(i);
+        for (int j = 0; j < npts; j++) {
+            eigvecs[i][j] = icol(j);
+        }
+    }
+
+    std::cout << std::endl << "Eigenvalues: ";
+    print_vector<T>(eigs);
+    std::cout << std::endl << "Eigenvectors: ";
+    print_vector_array<T>(eigvecs);
+
+}
+
+template <class T>
+bool ImaginaryDomainData<T>::pick_criterion() {
+    // Eigen::LLT<NMatrix> llt (pick + NMatrix::Identity(npts, npts) * 1e-250);
+    Eigen::LLT<NMatrix> llt (pick);
+    if(llt.info() == Eigen::NumericalIssue) {
+        return false;
+    }
+    return true;
+}
+
+template <class T>
 void ImaginaryDomainData<T>::set_freqs(const NVector& new_freqs) {
     freqs = new_freqs;
-    xi = Nevanlinna<T>::mobius(freqs);
+    zeta = Nevanlinna<T>::mobius(freqs);
     npts = freqs.size();
 }
 
 template <class T>
 void ImaginaryDomainData<T>::set_ng(const NVector& new_ng) {
     ng = new_ng;
-    lam = Nevanlinna<T>::mobius(new_ng);
+    w = Nevanlinna<T>::mobius(new_ng);
 }
 
 template <class T>
@@ -376,8 +462,8 @@ ImaginaryDomainData<T> Schur<T>::get_imag() const {
 }
 
 template <class T>
-typename Schur<T>::NVector Schur<T>::get_w() const {
-    return w;
+typename Schur<T>::NVector Schur<T>::get_phi() const {
+    return phi;
 }
 
 template <class T>
@@ -394,6 +480,9 @@ template <class T>
 void Schur<T>::set_w(const NVector& new_w) {
     w = new_w;
     npts = new_w.size();
+void Schur<T>::set_phi(const NVector& new_phi) {
+    phi = new_phi;
+    npts = new_phi.size();
 }
 
 template <class T>
@@ -482,6 +571,21 @@ typename H5Reader<T>::NVector H5Reader<T>::get_ng() const {
 }
 
 template <class T>
+double H5Reader<T>::get_start() const {
+    return start;
+}
+
+template <class T>
+double H5Reader<T>::get_stop() const {
+    return stop;
+}
+
+template <class T>
+int H5Reader<T>::get_num() const {
+    return num;
+}
+
+template <class T>
 std::string H5Writer<T>::get_fname() const {
     return h5_path;
 }
@@ -522,8 +626,8 @@ typename H5Writer<T>::NVector H5Writer<T>::get_ng() const {
 }
 
 template <class T>
-typename H5Writer<T>::NVector H5Writer<T>::get_w_list() const {
-    return w_list;
+typename H5Writer<T>::NVector H5Writer<T>::get_phi_list() const {
+    return phi_list;
 }
 
 template <class T>
@@ -537,7 +641,13 @@ typename H5Writer<T>::NVector H5Writer<T>::get_recon() const {
 
 template <class T>
 ImaginaryDomainData<T>::ImaginaryDomainData(const NVector& freqs0, const NVector& ng0) :
-    freqs(freqs0), xi(Nevanlinna<T>::mobius(freqs0)), ng(ng0), lam(Nevanlinna<T>::mobius(ng)), npts(freqs0.size()) {}
+    npts(freqs0.size()), freqs(freqs0), zeta(Nevanlinna<T>::mobius(freqs0)), ng(ng0), w(Nevanlinna<T>::mobius(ng)), pick(npts, npts), eigs(npts),
+    eigvecs (npts, NVector(npts))
+    {
+        init_pick();
+        is_valid = pick_criterion();
+        factor_pick();
+    }
 
 template <class T>
 RealDomainData<T>::RealDomainData(double start, double stop, int num, NReal eta) : freqs(num), npts(num) {
@@ -549,8 +659,8 @@ RealDomainData<T>::RealDomainData(double start, double stop, int num, NReal eta)
 }
 
 template <class T>
-Schur<T>::Schur(const ImaginaryDomainData<T>& imag0) : npts(imag0.get_npts()), imag(imag0), w(npts) {
-    generate_ws();
+Schur<T>::Schur(const ImaginaryDomainData<T>& imag0) : npts(imag0.get_npts()), imag(imag0), phi(npts) {
+    generate_phis();
 }
 
 template <class T>
@@ -560,7 +670,8 @@ Nevanlinna<T>::Nevanlinna(NVector& matsubara, NVector& ng) : schur(ImaginaryDoma
 template <class T>
 H5Reader<T>::H5Reader(std::string fname) :
     h5_path (fname), freq_str (read_field("freqs/imag")), ngr_str (read_field("ng/real")), ngi_str (read_field("ng/imag")),
-    npts (freq_str.size()), beta (read_int("beta")), freqs (npts), ng (npts)
+    npts (freq_str.size()), beta (read_int("beta")), freqs (npts), ng (npts), start (read_double("start")), stop (read_double("stop")),
+    num (read_int("num"))
 {
     for (int ii = 0; ii < npts; ii++) {
         freqs[ii] = NComplex{"0", freq_str[ii]};
@@ -572,8 +683,8 @@ template <class T>
 H5Writer<T>::H5Writer(std::string fname, int beta0, double start0, double stop0, int num0, const NReal& eta0,
                         const NVector& freqs0, const NVector& ng0, const NVector& recon0, const Nevanlinna<T>& nev0,
                         const NVector& rho_alt0, const NVector& delta_rho_plus0, const NVector& delta_rho_minus0)
-    : h5_path (fname),  beta(beta0), start(start0), stop(stop0), num(num0), eta(eta0), freqs(freqs0), xi_list(Nevanlinna<T>::mobius(freqs0)),
-      ng(ng0), lambda(Nevanlinna<T>::mobius(ng0)), recon(recon0), w_list(nev0.get_schur().get_w()), nev(nev0),
+    : h5_path (fname),  beta(beta0), start(start0), stop(stop0), num(num0), eta(eta0), freqs(freqs0), zeta_list(Nevanlinna<T>::mobius(freqs0)),
+      ng(ng0), w_list(Nevanlinna<T>::mobius(ng0)), recon(recon0), phi_list(nev0.get_schur().get_phi()), nev(nev0),
       rho_alt(rho_alt0), delta_rho_plus(delta_rho_plus0), delta_rho_minus(delta_rho_minus0) {
     f = new H5::H5File( h5_path, H5F_ACC_TRUNC );
 }
@@ -592,45 +703,45 @@ typename RealDomainData<T>::NComplex& RealDomainData<T>::operator[](int i) {
     return freqs[i];
 }
 
-// Forms the U matrix U_k(xi)
+// Forms the U matrix U_k(zeta)
 template <class T>
 typename Schur<T>::NMatrix Schur<T>::U_matrix(NComplex z, int k) {
-    NVector xi = imag.get_xi();       // xi = h(y), i.e. Mobius transform of Matsubara freqs. Note these should all be purely real (TODO check)
+    NVector zeta = imag.get_zeta();       // zeta = C(i\omega_\ell), i.e. Mobius transform of Matsubara freqs. Note these should all be purely real (TODO check)
 
-    NComplex blashke = (xi[k] - z) / (Prec<T>::ONE - std::conj(xi[k]) * z);
+    NComplex blashke = (zeta[k] - z) / (Prec<T>::ONE - std::conj(zeta[k]) * z);
     NMatrix U (2, 2);
-    U << blashke, w[k],
-         std::conj(w[k]) * blashke, Prec<T>::ONE;
-    U = U / std::sqrt(Prec<T>::ONE - w[k] * std::conj(w[k]));
+    U << blashke, phi[k],
+         std::conj(phi[k]) * blashke, Prec<T>::ONE;
+    U = U / std::sqrt(Prec<T>::ONE - phi[k] * std::conj(phi[k]));
     return U;
 }
 
 /**
- * @brief Generate w[j] parameters inductively.
+ * @brief Generate phi[j]\equiv w_j^{j-1} parameters inductively.
  *
  * @tparam T Precision type to use.
  * @return Schur<T>::NVector Result for w.
  */
 template <class T>
-typename Schur<T>::NVector Schur<T>::generate_ws() {
-    NVector xi = imag.get_xi();
-    NVector lam = imag.get_lambda();
-    w[0] = lam[0];
+typename Schur<T>::NVector Schur<T>::generate_phis() {
+    NVector zeta = imag.get_zeta();
+    NVector w = imag.get_w();
+    phi[0] = w[0];
     for (int j = 1; j < npts; j++) {
         NMatrix arr = NMatrix::Identity(2, 2);
         for (int k = 0; k < j; k++) {
-            arr = arr * U_matrix(xi[j], k);
+            arr = arr * U_matrix(zeta[j], k);
         }
 
-        NComplex num = lam[j] * arr(1, 1) - arr(0, 1);
-        NComplex denom = arr(0, 0) - lam[j] * arr(1, 0);
+        NComplex num = w[j] * arr(1, 1) - arr(0, 1);
+        NComplex denom = arr(0, 0) - w[j] * arr(1, 0);
         if (is_zero<T>(num)) {
-            w[j] = Prec<T>::ZERO;
+            phi[j] = Prec<T>::ZERO;
         } else {
-            w[j] = num / denom;
+            phi[j] = num / denom;
         }
     }
-    return w;
+    return phi;
 }
 
 /**
@@ -779,6 +890,19 @@ int H5Reader<T>::read_int(std::string dset_path) {
 }
 
 template <class T>
+double H5Reader<T>::read_double(std::string dset_path) {
+    H5::H5File f (h5_path, H5F_ACC_RDONLY);
+    H5::DataSet dset = f.openDataSet(dset_path);
+    H5::DataSpace dspace = dset.getSpace();
+    double data_out[1];
+    data_out[0] = 0.0;
+    dset.read(data_out, H5::PredType::NATIVE_DOUBLE, dspace);
+    double output = data_out[0];
+
+    return output;
+}
+
+template <class T>
 std::vector<std::string> H5Reader<T>::read_field(std::string dset_path) {
     H5::H5File f (h5_path, H5F_ACC_RDONLY);
     H5::DataSet dset = f.openDataSet(dset_path);
@@ -797,22 +921,23 @@ std::vector<std::string> H5Reader<T>::read_field(std::string dset_path) {
 
 template <class T>
 void H5Writer<T>::write() {
+
+    // Write input parameters and their Cayley transforms
     this->write_int("beta", beta);
     this->write_int("num", num);
-
     this->write_double("start", start);
     this->write_double("stop", stop);
-
     this->write_nreal("eta", eta);
-
     this->write_nvector("freqs", freqs);
-    this->write_nvector("xi", xi_list);
+    this->write_nvector("zeta_list", zeta_list);
     this->write_nvector("ng", ng);
-    this->write_nvector("lambda", lambda);
+    this->write_nvector("w_list", w_list);
 
-    this->write_nvector("w", w_list);
+    // Write recon
+    this->write_nvector("phi", phi_list);
     this->write_nvector("recon", recon);
 
+    // Write Nevanlinna coefficients
     this->write_nvector("P", nev.get_P());
     this->write_nvector("Q", nev.get_Q());
     this->write_nvector("R", nev.get_R());
@@ -821,6 +946,22 @@ void H5Writer<T>::write() {
     this->write_nvector("rho_alt", rho_alt);
     this->write_nvector("delta_rho_plus", delta_rho_plus);
     this->write_nvector("delta_rho_minus", delta_rho_minus);
+    // Write Pick matrix, eigenvalues, and eigenvectors
+    ImaginaryDomainData<T> im_data = nev.get_schur().get_imag();
+    int npts = im_data.get_npts();
+    NVectorArray eigvecs = im_data.get_pick_eigvecs();
+    NMatrix pick = im_data.get_pick();
+    NVector pick_vec (npts);
+
+    this->write_nvector("eigs", im_data.get_pick_eigs());                       // Write Pick eigenvalues.
+    for (int i = 0; i < npts; i++) {
+        // Write column of Pick matrix
+        for (int j = 0; j < npts; j++) {
+            pick_vec[j] = pick(i, j);
+        }
+        this->write_nvector("eigvecs_" + std::to_string(i), eigvecs[i]);        // Write Pick eigenvectors.
+        this->write_nvector("pick_" + std::to_string(i), pick_vec);             // Write rows of Pick matrix.
+    }
 
 }
 

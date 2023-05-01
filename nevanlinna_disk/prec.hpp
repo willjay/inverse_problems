@@ -29,7 +29,9 @@
 // ************************** Classes ************************* //
 // ************************************************************ //
 
-const mpfr_prec_t PRECISION    = mpfr_prec_t(128);
+// const mpfr_prec_t PRECISION    = mpfr_prec_t(1028);
+// const int DIGITS               = 128;
+const mpfr_prec_t PRECISION    = mpfr_prec_t(256);
 const int DIGITS               = 64;
 // const mpfr_prec_t PRECISION    = mpfr_prec_t(128);
 // const int DIGITS               = 31;
@@ -55,7 +57,8 @@ class Prec {
         using NComplex = std::complex<T>;
         using NVector = std::vector<NComplex>;
         using NMatrix = Eigen::Matrix<NComplex, Eigen::Dynamic, Eigen::Dynamic>;
-        using NArray = std::vector<NMatrix>;
+        using NVectorArray = std::vector<NVector>;
+        using NMatrixArray = std::vector<NMatrix>;
 
         // Constants
         static const NComplex ZERO;
@@ -178,6 +181,23 @@ void print_vector(const typename Prec<T>::NVector v) {
             std::cout << "]" << std::endl;
         }
     }
+}
+
+/**
+ * @brief Prints an array of complex vectors of base type T.
+ *
+ * @tparam T Base type of vector array.
+ * @param v Vector array to print.
+ */
+template <class T>
+void print_vector_array(const typename Prec<T>::NVectorArray va) {
+
+    std::cout << "[" << std::endl;
+    for (int i = 0; i < va.size(); i++) {
+        print_vector<T>(va[i]);
+        std::cout << std::endl;
+    }
+    std::cout << "]";
 }
 
 /**

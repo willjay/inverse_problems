@@ -53,19 +53,25 @@ int main(int argc, char const *argv[]) {
 
     Prec<mpfr::mpreal>::NReal eta (eta_str);
     Nevanlinna<mpfr::mpreal> nevanlinna (freqs, ng);
+    bool is_valid = nevanlinna.get_schur().get_imag().get_valid();
+    if (is_valid) {
+        std::cout << std::endl << "Data satisfies Pick criterion." << std::endl;
+    } else {
+        std::cout << std::endl << "Data DOES NOT satisfy Pick criterion." << std::endl;
+    }
 
-    // TODO figuring out problem with NANs
-    // std::cout << std::endl << "Phi vals: " << std::endl;
-    // print_vector<mpfr::mpreal>(nevanlinna.get_schur().get_w());
+    std::cout << std::endl << "Phi vals: " << std::endl;
+    print_vector<mpfr::mpreal>(nevanlinna.get_schur().get_phi());
+
+    // Read evaluation axis parameters
+    double start = reader.get_start();
+    double stop = reader.get_stop();
+    int num = reader.get_num();             // Number of points for recon
+    std::cout << "Evaluation axis runs from " << start << " to " << stop << " with " << num << " evaluation points." << std::endl;
 
     RealDomainData<mpfr::mpreal> omegas;
     Prec<mpfr::mpreal>::NVector rho_recon_disk;
     Prec<mpfr::mpreal>::NVector rho_recon;
-    // double start = -1.0;
-    // double stop = 1.0;
-    double start = 0.0;
-    double stop = 3.0;
-    int num = 1000;    // Number of points for recon
     std::tie(omegas, rho_recon_disk) = nevanlinna.evaluate(start, stop, num, eta);
     if (is_fermion) {
         std::cout << "Mapping fermionic Green function back to upper half plane." << std::endl;
@@ -87,10 +93,6 @@ int main(int argc, char const *argv[]) {
     std::tie(rho_alt, delta_rho_plus, delta_rho_minus) = nevanlinna.wertevorrat(is_fermion);
 
 
-    // std::cout << std::endl << "Reconstructed frequencies:" << std::endl;
-    // print_vector<mpfr::mpreal>(omegas.get_freqs());
-    // std::cout << std::endl << "Reconstructed spectral function:" << std::endl;
-    // print_vector<mpfr::mpreal>(rho_recon);
     std::cout << "Spectral function reconstructed." << std::endl;
 
     // Write to output file
