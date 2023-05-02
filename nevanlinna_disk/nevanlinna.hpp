@@ -53,6 +53,9 @@ class ImaginaryDomainData : Prec<T> {
         NVectorArray eigvecs;   // Eigenvectors of Pick matrix.
         bool is_valid;          // true if Pick matrix satisfies criterion.
 
+        NVector new_w;          // w with eigenvalue cut (equals w is is_valid).
+        NVector new_ng;         // -G after eigenvalue cut (equals ng if is_valid).
+
     public:
         ImaginaryDomainData(
             const NVector& freqs0,
@@ -60,6 +63,7 @@ class ImaginaryDomainData : Prec<T> {
         );
         void init_pick();
         void factor_pick();
+        void eig_cut(NReal epsilon = NReal(MACHINE_EPS));
         bool pick_criterion();
 
         // Accessors
@@ -72,6 +76,8 @@ class ImaginaryDomainData : Prec<T> {
         NVectorArray get_pick_eigvecs() const;
         bool get_valid() const;
         int get_npts() const;
+        NVector get_new_w() const;
+        NVector get_new_ng() const;
         void set_freqs(const NVector& new_freqs);
         void set_ng(const NVector& new_ng);
 
@@ -199,9 +205,9 @@ class Nevanlinna : Prec<T> {
         void set_S(const NVector& new_S);
 
         // Static methods
-        static NVector mobius(const NVector& z);
-        static NVector inv_mobius(const NVector& z);
-        static std::complex<T> inv_mobius(const std::complex<T>& z);
+        static NVector cayley(const NVector& z);
+        static NVector inv_cayley(const NVector& z);
+        static std::complex<T> inv_cayley(const std::complex<T>& z);
         static NVector inv_ctilde(const NVector& z);
         static std::complex<T> inv_ctilde(const std::complex<T>& z);
 
@@ -374,6 +380,16 @@ int ImaginaryDomainData<T>::get_npts() const {
 }
 
 template <class T>
+typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_new_w() const {
+    return new_w;
+}
+
+template <class T>
+typename ImaginaryDomainData<T>::NVector ImaginaryDomainData<T>::get_new_ng() const {
+    return new_ng;
+}
+
+template <class T>
 void ImaginaryDomainData<T>::init_pick() {
     for (int i = 0; i < npts; i++) {
         for (int j = 0; j < npts; j++) {
@@ -391,7 +407,7 @@ void ImaginaryDomainData<T>::factor_pick() {
     Eigen::ComplexEigenSolver<NMatrix> eigsolver (pick);
     NMatrix evals = eigsolver.eigenvalues();
     NMatrix evecs = eigsolver.eigenvectors();
-
+    
     for (int i = 0; i < npts; i++) {
         eigs[i] = evals(i);
         NMatrix icol = evecs.col(i);
@@ -402,8 +418,70 @@ void ImaginaryDomainData<T>::factor_pick() {
 
     std::cout << std::endl << "Eigenvalues: ";
     print_vector<T>(eigs);
-    std::cout << std::endl << "Eigenvectors: ";
-    print_vector_array<T>(eigvecs);
+    // std::cout << std::endl << "Eigenvectors: ";
+    // print_vector_array<T>(eigvecs);
+
+}
+
+/**
+ * @brief Performs an eigenvalue cut on the Pick matrix to regulate the negative eigenvalues.
+ * 
+ * @tparam T 
+ */
+template <class T>
+void ImaginaryDomainData<T>::eig_cut(NReal epsilon) {
+
+    int npts = eigs.size();
+    NVector eigs_p (npts);
+    for (int i = 0; i < npts; i++) {
+        if (eigs[i].real() > epsilon) {
+            eigs_p[i] = eigs[i];
+        } else {
+            eigs_p[i] = epsilon;
+        }
+    }
+    std::cout << "Original Pick eigenvalues: " << std::endl;
+    print_vector<T>(eigs);
+    std::cout << "Regulated Pick eigenvalues: " << std::endl;
+    print_vector<T>(eigs_p);
+
+    // Convert NVector to NMatrix for Eigen computation
+    NMatrix eigvec2 = Prec<T>::vecarray_to_mat(eigvecs);
+    NMatrix zeta2 = Prec<T>::vec_to_mat(zeta);
+    NMatrix eigs_p2 = Prec<T>::vec_to_mat(eigs_p);
+
+    NMatrix pick_p = eigvec2.transpose() * eigs_p2.asDiagonal() * eigvec2;
+
+    // Perform SVD of existing data and confirm we get back the correct values for w.
+    NMatrix W0_mat = NMatrix::Ones(npts, npts) - (NMatrix::Ones(npts, npts) - zeta2 * zeta2.transpose()).cwiseProduct(pick);
+    Eigen::JacobiSVD<NMatrix> svd0;
+    svd0.compute(W0_mat, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    NMatrix U0 = svd0.matrixU();
+    NMatrix V0 = svd0.matrixV();
+    NMatrix Sigma0 = svd0.singularValues();
+    NMatrix w0_recon = std::sqrt(Sigma0(0)) * U0.col(0);
+    std::cout << "Singular values: " << Sigma0 << std::endl;
+    std::cout << "Col 0 of V: " << V0.col(0) << std::endl;
+    std::cout << "Col 0 of U: " << U0.col(0) << std::endl;
+    std::cout << "Reconstructed w values: " << std::endl;
+    print_matrix<T>(w0_recon);
+
+    // SVD of new Pick matrix
+    NMatrix Wp_mat = NMatrix::Ones(npts, npts) - (NMatrix::Ones(npts, npts) - zeta2 * zeta2.transpose()).cwiseProduct(pick_p);
+    Eigen::JacobiSVD<NMatrix> svd;
+    svd.compute(Wp_mat, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    NMatrix U = svd.matrixU();
+    NMatrix V = svd.matrixV();
+    NMatrix Sigma = svd.singularValues();
+    NMatrix tmp_new_w = std::sqrt(Sigma(0)) * U.col(0);
+    std::cout << "Singular values: " << Sigma << std::endl;
+    // std::cout << "Col 0 of V: " << V.col(0) << std::endl;
+    // std::cout << "Col 0 of U: " << U.col(0) << std::endl;
+
+    new_w = Prec<T>::mat_to_vec(tmp_new_w);
+    new_ng = Nevanlinna<T>::inv_cayley(new_w);
+    std::cout << "Reconstructed w values: " << std::endl;
+    print_vector<T>(new_w);
 
 }
 
@@ -420,14 +498,14 @@ bool ImaginaryDomainData<T>::pick_criterion() {
 template <class T>
 void ImaginaryDomainData<T>::set_freqs(const NVector& new_freqs) {
     freqs = new_freqs;
-    zeta = Nevanlinna<T>::mobius(freqs);
+    zeta = Nevanlinna<T>::cayley(freqs);
     npts = freqs.size();
 }
 
 template <class T>
 void ImaginaryDomainData<T>::set_ng(const NVector& new_ng) {
     ng = new_ng;
-    w = Nevanlinna<T>::mobius(new_ng);
+    w = Nevanlinna<T>::cayley(new_ng);
 }
 
 template <class T>
@@ -477,9 +555,6 @@ void Schur<T>::set_imag(const ImaginaryDomainData<T>& new_imag) {
 }
 
 template <class T>
-void Schur<T>::set_w(const NVector& new_w) {
-    w = new_w;
-    npts = new_w.size();
 void Schur<T>::set_phi(const NVector& new_phi) {
     phi = new_phi;
     npts = new_phi.size();
@@ -640,13 +715,27 @@ typename H5Writer<T>::NVector H5Writer<T>::get_recon() const {
 // ************************************************************ //
 
 template <class T>
-ImaginaryDomainData<T>::ImaginaryDomainData(const NVector& freqs0, const NVector& ng0) :
-    npts(freqs0.size()), freqs(freqs0), zeta(Nevanlinna<T>::mobius(freqs0)), ng(ng0), w(Nevanlinna<T>::mobius(ng)), pick(npts, npts), eigs(npts),
-    eigvecs (npts, NVector(npts))
+ImaginaryDomainData<T>::ImaginaryDomainData(const NVector& freqs0, const NVector& ng0) : 
+    npts(freqs0.size()), freqs(freqs0), zeta(Nevanlinna<T>::cayley(freqs0)), ng(ng0), w(Nevanlinna<T>::cayley(ng)), pick(npts, npts), eigs(npts), 
+    eigvecs (npts, NVector(npts)), new_w (Nevanlinna<T>::cayley(ng)), new_ng (ng0)
     {
         init_pick();
         is_valid = pick_criterion();
         factor_pick();
+
+        std::cout << "Values of zeta: " << std::endl;
+        print_vector<T>(zeta);
+        std::cout << "Values of w: " << std::endl;
+        print_vector<T>(w);
+
+        if (is_valid) {
+            std::cout << std::endl << "Data satisfies Pick criterion." << std::endl;
+        } else {
+            std::cout << std::endl << "Data DOES NOT satisfy Pick criterion. Performing eigenvalue cut." << std::endl;
+            // Commented out so that the code runs faster, uncomment when playing around with this later.
+            // eig_cut();
+        }
+
     }
 
 template <class T>
@@ -683,8 +772,8 @@ template <class T>
 H5Writer<T>::H5Writer(std::string fname, int beta0, double start0, double stop0, int num0, const NReal& eta0,
                         const NVector& freqs0, const NVector& ng0, const NVector& recon0, const Nevanlinna<T>& nev0,
                         const NVector& rho_alt0, const NVector& delta_rho_plus0, const NVector& delta_rho_minus0)
-    : h5_path (fname),  beta(beta0), start(start0), stop(stop0), num(num0), eta(eta0), freqs(freqs0), zeta_list(Nevanlinna<T>::mobius(freqs0)),
-      ng(ng0), w_list(Nevanlinna<T>::mobius(ng0)), recon(recon0), phi_list(nev0.get_schur().get_phi()), nev(nev0),
+    : h5_path (fname),  beta(beta0), start(start0), stop(stop0), num(num0), eta(eta0), freqs(freqs0), zeta_list(Nevanlinna<T>::cayley(freqs0)),
+      ng(ng0), w_list(Nevanlinna<T>::cayley(ng0)), recon(recon0), phi_list(nev0.get_schur().get_phi()), nev(nev0),
       rho_alt(rho_alt0), delta_rho_plus(delta_rho_plus0), delta_rho_minus(delta_rho_minus0) {
     f = new H5::H5File( h5_path, H5F_ACC_TRUNC );
 }
@@ -745,9 +834,15 @@ typename Schur<T>::NVector Schur<T>::generate_phis() {
 }
 
 /**
- * TODO: doc here for Wertevorrat
- *
- **/
+ * @brief Computes the Wertevorrat for each evaluation point z = omega + i eta from the Nevanlinna coefficients P, Q, R, S. 
+ * Maps the Wertevorrat from \mathbb{D} back to either \mathbb{C}^+ or \mathbb{C}\setminus \mathbb{R}^-, depending on whether the 
+ * system is bosonic (\mathbb{C}\setminus \mathbb{R}^-) or fermionic (\mathbb{C}^+).
+ * 
+ * @tparam T Precision type to use.
+ * @param is_fermion true for fermionic system, false for bosonic system
+ * @return std::tuple<typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector> 
+ *   Center, upper edge, and lower edge of Wertevorrat after inverse transform, respectively.
+ */
 template <class T>
 std::tuple<typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector> Nevanlinna<T>::wertevorrat(bool is_fermion) {
 
@@ -768,7 +863,7 @@ std::tuple<typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector, typ
         B[i] = P[i]*S[i] - Q[i]*R[i];
         radius[i] = std::sqrt(B[i] * std::conj(B[i]))/(S[i]*std::conj(S[i]) - R[i]*std::conj(R[i]));
         if (is_fermion){
-            rho[i] = T(inv_mobius(center[i]).imag());
+            rho[i] = T(inv_cayley(center[i]).imag());
         }
         else {
             rho[i] = T(inv_ctilde(center[i]).imag());
@@ -793,7 +888,7 @@ std::tuple<typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector, typ
         for (int j=0; j<theta.size(); j++){
             dDelta(i, j) = center[i] + radius[i]*std::exp(Prec<T>::I*theta[j]);
             if (is_fermion){
-                dGamma(i, j) = inv_mobius(dDelta(i, j));
+                dGamma(i, j) = inv_cayley(dDelta(i, j));
             }
             else {
                 dGamma(i, j) = inv_ctilde(dDelta(i, j));
@@ -847,7 +942,7 @@ std::tuple<typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schu
         interp[i] = num / denom;
     }
     // if (map_back) {
-    //     return std::make_tuple(Nevanlinna<T>::inv_mobius(interp), a, b, c, d);
+    //     return std::make_tuple(Nevanlinna<T>::inv_cayley(interp), a, b, c, d);
     // }
     return std::make_tuple(interp, p, q, r, s);
 }
@@ -865,11 +960,8 @@ std::tuple<typename Schur<T>::NVector, typename Schur<T>::NVector, typename Schu
 template <class T>
 std::tuple<RealDomainData<T>, typename Nevanlinna<T>::NVector> Nevanlinna<T>::evaluate(double start, double stop, int num, NReal eta) {
 
-    // TODO make input function a parameter here
-
     RealDomainData<T> omega (start, stop, num, eta);
-    // NVector freqs = omega.get_freqs();
-    NVector freqs = Nevanlinna<T>::mobius(omega.get_freqs());
+    NVector freqs = Nevanlinna<T>::cayley(omega.get_freqs());
     NVector interp;
     std::tie(interp, P, Q, R, S) = schur.eval_interp(freqs, Schur<T>::zero_fcn);
 
@@ -943,16 +1035,17 @@ void H5Writer<T>::write() {
     this->write_nvector("R", nev.get_R());
     this->write_nvector("S", nev.get_S());
 
+    // Write Wertevorrat
     this->write_nvector("rho_alt", rho_alt);
     this->write_nvector("delta_rho_plus", delta_rho_plus);
     this->write_nvector("delta_rho_minus", delta_rho_minus);
+
     // Write Pick matrix, eigenvalues, and eigenvectors
     ImaginaryDomainData<T> im_data = nev.get_schur().get_imag();
     int npts = im_data.get_npts();
     NVectorArray eigvecs = im_data.get_pick_eigvecs();
     NMatrix pick = im_data.get_pick();
     NVector pick_vec (npts);
-
     this->write_nvector("eigs", im_data.get_pick_eigs());                       // Write Pick eigenvalues.
     for (int i = 0; i < npts; i++) {
         // Write column of Pick matrix
@@ -962,6 +1055,10 @@ void H5Writer<T>::write() {
         this->write_nvector("eigvecs_" + std::to_string(i), eigvecs[i]);        // Write Pick eigenvectors.
         this->write_nvector("pick_" + std::to_string(i), pick_vec);             // Write rows of Pick matrix.
     }
+
+    // Write new w values after eigenvalue cut
+    this->write_nvector("new_w", im_data.get_new_w());
+    this->write_nvector("new_ng", im_data.get_new_ng());
 
 }
 
@@ -1027,11 +1124,11 @@ void H5Writer<T>::write_nvector(std::string dset_path, NVector data) {
  * @brief Mobius transformation C^+ -> D of a list of input data.
  *
  * @tparam T Precision type to use.
- * @param z Input vector for mobius transformation. Each element should be in the upper half plane.
+ * @param z Input vector for cayley transformation. Each element should be in the upper half plane.
  * @return ImaginaryDomainData<T>::NVector Mobius transformed vector. Each element should be in the unit disk.
  */
 template <class T>
-typename Nevanlinna<T>::NVector Nevanlinna<T>::mobius(const NVector& z) {
+typename Nevanlinna<T>::NVector Nevanlinna<T>::cayley(const NVector& z) {
     NVector hz(z);
     for (int i = 0; i < z.size(); i++) {
         hz[i] = (z[i] - Prec<T>::I) / (z[i] + Prec<T>::I);
@@ -1040,14 +1137,14 @@ typename Nevanlinna<T>::NVector Nevanlinna<T>::mobius(const NVector& z) {
 }
 
 /**
- * @brief Inverse mobius transformation D -> C^+.
+ * @brief Inverse cayley transformation D -> C^+.
  *
  * @tparam T Precision type to use.
  * @param z Input vector for inverse transformation. Each element should be in the unit disk.
  * @return ImaginaryDomainData<T>::NVector Inverse transformed vector. Each element should be in the upper half plane.
  */
 template <class T>
-typename Nevanlinna<T>::NVector Nevanlinna<T>::inv_mobius(const NVector& z) {
+typename Nevanlinna<T>::NVector Nevanlinna<T>::inv_cayley(const NVector& z) {
     NVector hinvz(z);
     for (int i = 0; i < z.size(); i++) {
         hinvz[i] = Prec<T>::I * (Prec<T>::ONE + z[i]) / (Prec<T>::ONE - z[i]);
@@ -1056,7 +1153,7 @@ typename Nevanlinna<T>::NVector Nevanlinna<T>::inv_mobius(const NVector& z) {
 }
 
 template <class T>
-typename std::complex<T> Nevanlinna<T>::inv_mobius(const std::complex<T>& z) {
+typename std::complex<T> Nevanlinna<T>::inv_cayley(const std::complex<T>& z) {
     return Prec<T>::I * (Prec<T>::ONE + z) / (Prec<T>::ONE - z);
 }
 
@@ -1081,46 +1178,6 @@ template <class T>
 typename std::complex<T> Nevanlinna<T>::inv_ctilde(const std::complex<T>& z) {
     auto tmp = (Prec<T>::ONE + z) / (Prec<T>::ONE - z);
     return tmp * tmp;
-}
-
-
-/**
- * @brief Computes the Pick matrix from a given set of Y-values (mobius-transformed frequencies) and
- * lambda-values (mobius-transformed correlators).
- *
- * @tparam T Base data type.
- * @param yvals Mobius-transformed Euclidean frequencies.
- * @param lambda_vals Mobius-transformed correlation function data.
- * @return Schur<T>::NMatrix Pick matrix of data.
- */
-template <class T>
-typename Schur<T>::NMatrix Schur<T>::get_pick(const NVector& yvals, const NVector& lambda_vals) {
-    int N = yvals.size();
-    NMatrix pick(N, N);
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            NComplex num = Prec<T>::ONE - lambda_vals[i] * std::conj(lambda_vals[j]);
-            NComplex denom = Prec<T>::ONE - yvals[i] * std::conj(yvals[j]);
-            pick(i, j) = num / denom;
-        }
-    }
-    return pick;
-}
-
-/**
- * @brief Computes the Pick matrix from a given set of Euclidean frequences (should be
- * in C^+) and correlation function data (should be in C^+).
- *
- * @tparam T Base type of data.
- * @param freqs Euclidean frequencies to compute Pick matrix with.
- * @param ng Correlation function data to compute Pick matrix with.
- * @return Schur<T>::NMatrix Pick matrix of data.
- */
-template <class T>
-typename Schur<T>::NMatrix Schur<T>::get_pick_realspace(const NVector& freqs, const NVector& ng) {
-    NVector yvals = Nevanlinna<T>::mobius(freqs);
-    NVector lambda_vals = Nevanlinna<T>::mobius(ng);
-    return Schur<T>::get_pick(yvals, lambda_vals);
 }
 
 // Zero function for input to Nevanlinna.

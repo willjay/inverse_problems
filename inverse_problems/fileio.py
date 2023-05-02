@@ -10,7 +10,7 @@ gmp.get_context().precision = prec
 ONE = gmp.mpc(1, 0)
 I = gmp.mpc(0, 1)
 
-def write_gmp_input_h5(fname, beta, freqs, ng, normalization=1.0):
+def write_gmp_input_h5(fname, beta, freqs, ng, start, stop, num, normalization=1.0):
     """
     Writes spectral function data to the appropriate file.
 
@@ -25,6 +25,9 @@ def write_gmp_input_h5(fname, beta, freqs, ng, normalization=1.0):
     f['freqs/imag'] = freqs_imag
     f['ng/real'] = ng_real
     f['ng/imag'] = ng_imag
+    f['start'] = start
+    f['stop'] = stop
+    f['num'] = num
     f['normalization'] = normalization
     f.close()
     return fname
@@ -88,7 +91,7 @@ def read_gmp_output_disk_h5(fname):
     num = f['num'][(0)]
     eta = gmp.mpfr(f['eta'][(0)].decode('utf-8'))
 
-    data_keys = ['freqs', 'xi', 'ng', 'lambda', 'w', 'recon', 'P', 'Q', 'R', 'S']
+    data_keys = ['freqs', 'zeta_list', 'ng', 'w_list', 'phi', 'recon', 'P', 'Q', 'R', 'S', 'eig']
     print(f['S_real'][()])
     data = [np.zeros((beta), dtype = object), np.zeros((beta), dtype = object), np.zeros((beta), dtype = object), np.zeros((beta), dtype = object), \
         np.zeros((num), dtype = object), np.zeros((num), dtype = object), np.zeros((num), dtype = object), np.zeros((num), dtype = object), \

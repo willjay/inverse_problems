@@ -36,10 +36,7 @@ const int DIGITS               = 64;
 // const mpfr_prec_t PRECISION    = mpfr_prec_t(128);
 // const int DIGITS               = 31;
 const mpfr_rnd_t RRND          = MPFR_RNDN;
-
-// mpf_set_default_prec(PRECISION);
-// std::cout.precision(DIGITS);
-// mpfr::mpreal::set_default_prec(mpfr::digits2bits(DIGITS));
+const std::string MACHINE_EPS  = "1e-16";
 
 /**
  * @brief Template class for precision numbers. The abstract class T should be a
@@ -83,6 +80,9 @@ class Prec {
 
         static NVector row_to_vector(NMatrix rowvec);
         static NVector col_to_vector(NMatrix colvec);
+        static NVector mat_to_vec(const NMatrix mat);
+        static NMatrix vec_to_mat(const NVector vec);
+        static NMatrix vecarray_to_mat(const NVectorArray va);
 };
 
 // DEFINE CONSTANTS
@@ -107,8 +107,10 @@ template <> const typename Prec<mpfr::mpreal>::NComplex Prec<mpfr::mpreal>::    
 template <> const typename Prec<double>::NReal Prec<double>::                   DEFAULT_ETA(1e-5);
 template <> const typename Prec<mpfr::mpreal>::NReal Prec<mpfr::mpreal>::       DEFAULT_ETA(mpfr::mpreal("1e-5", mpfr::digits2bits(DIGITS)));
 
-template <> const typename Prec<double>::NReal Prec<double>::                   EPSILON(1e-10);
-template <> const typename Prec<mpfr::mpreal>::NReal Prec<mpfr::mpreal>::       EPSILON(mpfr::mpreal("1e-10", mpfr::digits2bits(DIGITS)));
+// template <> const typename Prec<double>::NReal Prec<double>::                   EPSILON(1e-10);
+// template <> const typename Prec<mpfr::mpreal>::NReal Prec<mpfr::mpreal>::       EPSILON(mpfr::mpreal("1e-10", mpfr::digits2bits(DIGITS)));
+template <> const typename Prec<double>::NReal Prec<double>::                   EPSILON(1e-32);
+template <> const typename Prec<mpfr::mpreal>::NReal Prec<mpfr::mpreal>::       EPSILON(mpfr::mpreal("1e-32", mpfr::digits2bits(DIGITS)));
 
 // ************************************************************ //
 // ********************* Utility functions ******************** //
@@ -255,6 +257,48 @@ std::vector<std::string> vec_to_istring(const typename Prec<T>::NVector vec) {
         out_str[i] = vec[i].imag().toString(DIGITS);
     }
     return out_str;
+}
+
+/**
+ * @brief Converts an NMatrix to a NVector. Note that NMatrix must be used for 
+ * linear algebra computations, while NVector is used for reading / writing / 
+ * storing vectors.
+ * 
+ * @tparam T paramter type
+ * @param mat Matrix to convert
+ * @return Prec<T>::NVector Output NVector
+ */
+template <class T>
+typename Prec<T>::NVector Prec<T>::mat_to_vec(const typename Prec<T>::NMatrix mat) {
+    int len = mat.size();
+    Prec<T>::NVector out (len);
+    for (int i = 0; i < len; i++) {
+        out[i] = mat(i);
+    }
+    return out;
+}
+
+template <class T>
+typename Prec<T>::NMatrix Prec<T>::vec_to_mat(const typename Prec<T>::NVector vec) {
+    int len = vec.size();
+    Prec<T>::NMatrix out (len, 1);
+    for (int i = 0; i < len; i++) {
+        out(i) = vec[i];
+    }
+    return out;
+}
+
+template <class T>
+typename Prec<T>::NMatrix Prec<T>::vecarray_to_mat(const typename Prec<T>::NVectorArray va) {
+    int n = va.size();
+    int m = va[0].size();
+    Prec<T>::NMatrix out (n, m);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            out(i, j) = va[i][j];
+        }
+    }
+    return out;
 }
 
 #endif

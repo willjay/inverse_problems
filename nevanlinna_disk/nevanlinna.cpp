@@ -46,11 +46,6 @@ int main(int argc, char const *argv[]) {
     std::cout << "Number of measured Matsubara frequencies: " << freqs.size() << std::endl;
     std::cout << "Beta is: " << beta << std::endl;
 
-    // std::cout << std::endl << "Matsubara frequencies:" << std::endl;
-    // print_vector<mpfr::mpreal>(freqs);
-    // std::cout << std::endl << "Green's function at Matsubara frequencies:" << std::endl;
-    // print_vector<mpfr::mpreal>(ng);
-
     Prec<mpfr::mpreal>::NReal eta (eta_str);
     Nevanlinna<mpfr::mpreal> nevanlinna (freqs, ng);
     bool is_valid = nevanlinna.get_schur().get_imag().get_valid();
@@ -75,7 +70,7 @@ int main(int argc, char const *argv[]) {
     std::tie(omegas, rho_recon_disk) = nevanlinna.evaluate(start, stop, num, eta);
     if (is_fermion) {
         std::cout << "Mapping fermionic Green function back to upper half plane." << std::endl;
-        rho_recon = Nevanlinna<mpfr::mpreal>::inv_mobius(rho_recon_disk);
+        rho_recon = Nevanlinna<mpfr::mpreal>::inv_cayley(rho_recon_disk);
     }
     else {
         std::cout << "Mapping bosonic Green function back to upper half plane." << std::endl;
@@ -83,15 +78,11 @@ int main(int argc, char const *argv[]) {
     }
 
     // Compute central value and Wertevorrat
-    // std::vector<T> rho_alt;
-    // std::vector<T> delta_rho_plus;
-    // Prec<mpfr::mpreal>::NVector delta_rho_minus;
     std::cout << "Computing Wertevorrat." << std::endl;
     Prec<mpfr::mpreal>::NVector rho_alt;
     Prec<mpfr::mpreal>::NVector delta_rho_plus;
     Prec<mpfr::mpreal>::NVector delta_rho_minus;
     std::tie(rho_alt, delta_rho_plus, delta_rho_minus) = nevanlinna.wertevorrat(is_fermion);
-
 
     std::cout << "Spectral function reconstructed." << std::endl;
 
