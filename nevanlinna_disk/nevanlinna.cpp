@@ -1,5 +1,5 @@
 #include <iostream>
-#include <omp.h>
+// #include <omp.h>
 #include <chrono>
 
 #include <cassert>
@@ -36,6 +36,7 @@ int main(int argc, char const *argv[]) {
     std::cout << "Reading input from: " << in_name << std::endl;
     std::cout << "Writing output to: " << out_name << std::endl;
     std::cout << "Running reconstruction with eta = " << eta_str << std::endl;
+    std::cout << "Running with fermionic data? " << is_fermion << std::endl;
 
     // Read data from input file
     H5Reader<mpfr::mpreal> reader (in_name);
@@ -47,7 +48,7 @@ int main(int argc, char const *argv[]) {
     std::cout << "Beta is: " << beta << std::endl;
 
     Prec<mpfr::mpreal>::NReal eta (eta_str);
-    Nevanlinna<mpfr::mpreal> nevanlinna (freqs, ng);
+    Nevanlinna<mpfr::mpreal> nevanlinna (freqs, ng, is_fermion);
     bool is_valid = nevanlinna.get_schur().get_imag().get_valid();
     if (is_valid) {
         std::cout << std::endl << "Data satisfies Pick criterion." << std::endl;
@@ -55,8 +56,8 @@ int main(int argc, char const *argv[]) {
         std::cout << std::endl << "Data DOES NOT satisfy Pick criterion." << std::endl;
     }
 
-    std::cout << std::endl << "Phi vals: " << std::endl;
-    print_vector<mpfr::mpreal>(nevanlinna.get_schur().get_phi());
+    // std::cout << std::endl << "Phi vals: " << std::endl;
+    // print_vector<mpfr::mpreal>(nevanlinna.get_schur().get_phi());
 
     // Read evaluation axis parameters
     double start = reader.get_start();

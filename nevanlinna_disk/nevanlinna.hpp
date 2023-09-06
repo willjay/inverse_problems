@@ -59,7 +59,8 @@ class ImaginaryDomainData : Prec<T> {
     public:
         ImaginaryDomainData(
             const NVector& freqs0,
-            const NVector& ng0
+            const NVector& ng0,
+            bool is_fermion
         );
         void init_pick();
         void factor_pick();
@@ -181,7 +182,8 @@ class Nevanlinna : Prec<T> {
     public:
         Nevanlinna(
             NVector& matsubara,
-            NVector& ng
+            NVector& ng,
+            bool is_fermion
         );
         std::tuple<RealDomainData<T>, NVector> evaluate(
             double start = 0.0,
@@ -206,6 +208,7 @@ class Nevanlinna : Prec<T> {
 
         // Static methods
         static NVector cayley(const NVector& z);
+        static NVector ctilde(const NVector& z);
         static NVector inv_cayley(const NVector& z);
         static std::complex<T> inv_cayley(const std::complex<T>& z);
         static NVector inv_ctilde(const NVector& z);
@@ -407,7 +410,7 @@ void ImaginaryDomainData<T>::factor_pick() {
     Eigen::ComplexEigenSolver<NMatrix> eigsolver (pick);
     NMatrix evals = eigsolver.eigenvalues();
     NMatrix evecs = eigsolver.eigenvectors();
-    
+
     for (int i = 0; i < npts; i++) {
         eigs[i] = evals(i);
         NMatrix icol = evecs.col(i);
@@ -416,8 +419,8 @@ void ImaginaryDomainData<T>::factor_pick() {
         }
     }
 
-    std::cout << std::endl << "Eigenvalues: ";
-    print_vector<T>(eigs);
+    // std::cout << std::endl << "Eigenvalues: ";
+    // print_vector<T>(eigs);
     // std::cout << std::endl << "Eigenvectors: ";
     // print_vector_array<T>(eigvecs);
 
@@ -425,8 +428,8 @@ void ImaginaryDomainData<T>::factor_pick() {
 
 /**
  * @brief Performs an eigenvalue cut on the Pick matrix to regulate the negative eigenvalues.
- * 
- * @tparam T 
+ *
+ * @tparam T
  */
 template <class T>
 void ImaginaryDomainData<T>::eig_cut(NReal epsilon) {
@@ -506,6 +509,7 @@ template <class T>
 void ImaginaryDomainData<T>::set_ng(const NVector& new_ng) {
     ng = new_ng;
     w = Nevanlinna<T>::cayley(new_ng);
+    // TODO: Add support for bosonic data with ctilde
 }
 
 template <class T>
@@ -715,26 +719,44 @@ typename H5Writer<T>::NVector H5Writer<T>::get_recon() const {
 // ************************************************************ //
 
 template <class T>
-ImaginaryDomainData<T>::ImaginaryDomainData(const NVector& freqs0, const NVector& ng0) : 
-    npts(freqs0.size()), freqs(freqs0), zeta(Nevanlinna<T>::cayley(freqs0)), ng(ng0), w(Nevanlinna<T>::cayley(ng)), pick(npts, npts), eigs(npts), 
-    eigvecs (npts, NVector(npts)), new_w (Nevanlinna<T>::cayley(ng)), new_ng (ng0)
+ImaginaryDomainData<T>::ImaginaryDomainData(const NVector& freqs0, const NVector& ng0, bool is_fermion) :
+    npts(freqs0.size()),
+    freqs(freqs0),
+    zeta(Nevanlinna<T>::cayley(freqs0)),
+    ng(ng0),
+    w(Nevanlinna<T>::cayley(ng)),
+    pick(npts, npts),
+    eigs(npts),
+    eigvecs (npts, NVector(npts)),
+    new_w (Nevanlinna<T>::cayley(ng)),
+    new_ng (ng0)
     {
+        if (is_fermion == false){
+            std::cout << "Mapping bosonic input data to the disk." << std::endl;
+            w = Nevanlinna<T>::ctilde(ng0);
+            new_w = Nevanlinna<T>::ctilde(ng);
+        }
+        else {
+            std::cout << "Mapping fermionic input data to the disk." << std::endl;
+            w = Nevanlinna<T>::cayley(ng0);
+            new_w = Nevanlinna<T>::cayley(ng);
+        }
         init_pick();
         is_valid = pick_criterion();
         factor_pick();
 
-        std::cout << "Values of zeta: " << std::endl;
-        print_vector<T>(zeta);
-        std::cout << "Values of w: " << std::endl;
-        print_vector<T>(w);
+        // std::cout << "Values of zeta: " << std::endl;
+        // print_vector<T>(zeta);
+        // std::cout << "Values of w: " << std::endl;
+        // print_vector<T>(w);
 
-        if (is_valid) {
-            std::cout << std::endl << "Data satisfies Pick criterion." << std::endl;
-        } else {
-            std::cout << std::endl << "Data DOES NOT satisfy Pick criterion. Performing eigenvalue cut." << std::endl;
-            // Commented out so that the code runs faster, uncomment when playing around with this later.
-            // eig_cut();
-        }
+        // if (is_valid) {
+        //     std::cout << std::endl << "Data satisfies Pick criterion." << std::endl;
+        // } else {
+        //     std::cout << std::endl << "Data DOES NOT satisfy Pick criterion. Performing eigenvalue cut." << std::endl;
+        //     // Commented out so that the code runs faster, uncomment when playing around with this later.
+        //     // eig_cut();
+        // }
 
     }
 
@@ -753,7 +775,7 @@ Schur<T>::Schur(const ImaginaryDomainData<T>& imag0) : npts(imag0.get_npts()), i
 }
 
 template <class T>
-Nevanlinna<T>::Nevanlinna(NVector& matsubara, NVector& ng) : schur(ImaginaryDomainData<T>(matsubara, ng)), \
+Nevanlinna<T>::Nevanlinna(NVector& matsubara, NVector& ng, bool is_fermion) : schur(ImaginaryDomainData<T>(matsubara, ng, is_fermion)), \
         P(1), Q(1), R(1), S(1) {}
 
 template <class T>
@@ -776,6 +798,7 @@ H5Writer<T>::H5Writer(std::string fname, int beta0, double start0, double stop0,
       ng(ng0), w_list(Nevanlinna<T>::cayley(ng0)), recon(recon0), phi_list(nev0.get_schur().get_phi()), nev(nev0),
       rho_alt(rho_alt0), delta_rho_plus(delta_rho_plus0), delta_rho_minus(delta_rho_minus0) {
     f = new H5::H5File( h5_path, H5F_ACC_TRUNC );
+    // TODO: Add support for bosonic data via ctilde
 }
 
 // ************************************************************ //
@@ -834,13 +857,13 @@ typename Schur<T>::NVector Schur<T>::generate_phis() {
 }
 
 /**
- * @brief Computes the Wertevorrat for each evaluation point z = omega + i eta from the Nevanlinna coefficients P, Q, R, S. 
- * Maps the Wertevorrat from \mathbb{D} back to either \mathbb{C}^+ or \mathbb{C}\setminus \mathbb{R}^-, depending on whether the 
+ * @brief Computes the Wertevorrat for each evaluation point z = omega + i eta from the Nevanlinna coefficients P, Q, R, S.
+ * Maps the Wertevorrat from \mathbb{D} back to either \mathbb{C}^+ or \mathbb{C}\setminus \mathbb{R}^-, depending on whether the
  * system is bosonic (\mathbb{C}\setminus \mathbb{R}^-) or fermionic (\mathbb{C}^+).
- * 
+ *
  * @tparam T Precision type to use.
  * @param is_fermion true for fermionic system, false for bosonic system
- * @return std::tuple<typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector> 
+ * @return std::tuple<typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector, typename Nevanlinna<T>::NVector>
  *   Center, upper edge, and lower edge of Wertevorrat after inverse transform, respectively.
  */
 template <class T>
@@ -1132,6 +1155,15 @@ typename Nevanlinna<T>::NVector Nevanlinna<T>::cayley(const NVector& z) {
     NVector hz(z);
     for (int i = 0; i < z.size(); i++) {
         hz[i] = (z[i] - Prec<T>::I) / (z[i] + Prec<T>::I);
+    }
+    return hz;
+}
+
+template <class T>
+typename Nevanlinna<T>::NVector Nevanlinna<T>::ctilde(const NVector& z) {
+    NVector hz(z);
+    for (int i = 0; i < z.size(); i++) {
+        hz[i] = (std::sqrt(z[i]) - Prec<T>::ONE) / (std::sqrt(z[i]) + Prec<T>::ONE);
     }
     return hz;
 }
